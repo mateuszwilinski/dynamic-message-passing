@@ -32,4 +32,4 @@ for i in 1:sim_n
     temp .+= (cascade(g, p0, T) .> 0)
 end
 
-
+round.(marginals, digits=2) == round.(temp ./ sim_n, digits=2)
