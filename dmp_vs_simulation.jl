@@ -32,4 +32,5 @@ for i in 1:sim_n
     temp .+= (cascade(g, p0, T) .> 0)
 end
 
-round.(marginals, digits=2) == round.(temp ./ sim_n, digits=2)
+println("The relative difference between DMP and simulations is:")
+println(sum(abs.(marginals - temp ./ sim_n)) / sum(marginals))
