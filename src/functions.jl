@@ -4,10 +4,10 @@
 
 Generate a proper edgelist (as a dictionary) for graph structure, from an array of edges
 """
-function edgelist_from_array(edges::Array{Int64, 2}, weights::Array{Float64, 1})
+function edgelist_from_array(edges::Array{Int64, 2}, edge_weights::Array{Float64, 1})
     edgelist = Dict{Array{Int64, 1}, Float64}()
-    for i in 1:length(weights)
-        edgelist[[edges[i, 1], edges[i, 2]]] = weights[i]
+    for i in 1:length(edge_weights)
+        edgelist[[edges[i, 1], edges[i, 2]]] = edge_weights[i]
     end
     return edgelist
 end
