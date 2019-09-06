@@ -199,22 +199,28 @@ Calculates gradient for alphas according to lagrange derivative
 """
 function get_gradient(cascades::Array{Array{UInt8,2},1}, g::Graph)
     D_ij = Dict{Array{Int64, 1}, Float64}()
-    marginals = Array{Float64, 2}
+    all_marginals = Dict{Int64, Array{Float64,2}}()
+    all_messages = Dict{Int64, Dict{Array{Int64,1}, Array{Float64,1}}}()
     objective = 0.0
     for c in 1:size(cascades)[1]
         T = size(cascades[c])[1]
         tau = times_from_cascade(cascades[c])
         p0 = convert(Array{Float64, 1}, cascades[c][1, :])
-        marginals, messages = dynamic_messsage_passing(g, p0, T)
-        lambda = lambda_from_marginals(marginals, tau)
-        lambda_ij = get_lambda_ij(lambda, g, messages, p0)
+        seed = findfirst(isequal(1.0), p0)
+        if !haskey(all_marginals, seed)
+            all_marginals[seed], all_messages[seed] = dynamic_messsage_passing(g, p0, T)
+        end
+        lambda = lambda_from_marginals(all_marginals[seed], tau)
+        lambda_ij = get_lambda_ij(lambda, g, all_messages[seed], p0)
 
-        objective += get_objective(marginals, tau)
-        for (edge, v) in g.edgelist  # bare in mind that 'v' could be zero (maybe an 'if' is needed?)
+        objective += get_objective(all_marginals[seed], tau)
+        for (edge, v) in g.edgelist  # bare in mind that 'v' could be zero (maybe 'if' is needed?)
             if c == 1
-                D_ij[edge] = sum(lambda_ij[edge] .* messages[edge] + lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+                D_ij[edge] = sum(lambda_ij[edge] .* all_messages[seed][edge] +
+                    lambda_ij[reverse(edge)] .* all_messages[seed][reverse(edge)]) / v
             else
-                D_ij[edge] += sum(lambda_ij[edge] .* messages[edge] + lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+                D_ij[edge] += sum(lambda_ij[edge] .* all_messages[seed][edge] +
+                    lambda_ij[reverse(edge)] .* all_messages[seed][reverse(edge)]) / v
             end
         end
     end

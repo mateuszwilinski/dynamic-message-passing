@@ -10,18 +10,18 @@ function main()
     n = try parse(Int64, ARGS[3]) catch e 200 end
     k = try parse(Int64, ARGS[4]) catch e 1 end
     r = try parse(Int64, ARGS[5]) catch e 1 end
-    s = try parse(Int64, ARGS[6]) catch e rand(1:n) end
+    T = try parse(Int64, ARGS[6]) catch e 100 end
+    s = try parse(Int64, ARGS[7]) catch e rand(1:n) end
 
-    for f in 1:10
+    for f in 1:5
         # Loading network
         edges = readdlm(string("data/networks/", network_type, "_", k, "_", n, "_", f, ".csv"), ' ', Int64) .+ 1
         p0 = zeros(Float64, n)
         p0[s] = 1.0
-        T = 100
 
         for _ in 1:r
             # Generating IC model
-            edge_weights = rand(size(edges)[1])
+            edge_weights = repeat([0.8], size(edges)[1])  # rand(size(edges)[1])
 
             edgelist = edgelist_from_array(edges, edge_weights)
             m = length(edgelist)
@@ -39,8 +39,8 @@ function main()
             end
 
             # Printing results
-            println("d_vs_s;", network_type, ";", k, ";", n, ";", sim_n, ";", s, ";", f, ";",
-            sum(abs.(marginals - temp ./ sim_n)) / sum(marginals))
+            println("d_vs_s;", network_type, ";", k, ";", n, ";", sim_n, ";", s, ";", f,
+            ";", T, ";", sum(abs.(marginals - temp ./ sim_n)) / sum(marginals))
         end
     end
 end
