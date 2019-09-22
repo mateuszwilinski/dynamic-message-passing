@@ -114,6 +114,47 @@ function times_from_cascade(cascade::Array{UInt8, 2})
 end
 
 """
+    add_activations_to_seed!(seed, tau)
+
+Generates a list of activation times for a given cascade initial point (seed)
+"""
+function add_activations_to_seed!(seed::Dict{Int64, Dict{Int64, Int64}}, tau::Array{Int64, 1})
+    for i in 1:length(tau)
+        t = tau[i]
+        if !haskey(seed, i)
+            seed[i] = Dict{Int64, Int64}()
+            seed[i][t] = 1
+        else
+            if !haskey(seed[i], t)
+                seed[i][t] = 1
+            else
+                seed[i][t] += 1
+            end
+        end
+    end
+end
+
+"""
+    preprocess_cascades(cascades)
+
+Gets classes of cascades, based on their initial points (seeds), and their activation times
+"""
+function preprocess_cascades(cascades::Array{Array{UInt8, 2}, 1})
+    cascades_classes = Dict{Int64, Dict{Int64, Dict{Int64, Int64}}}()
+    for cascade in cascades
+        T = size(cascade)[1]
+        tau = times_from_cascade(cascade)
+        p0 = convert(Array{Float64, 1}, cascade[1, :])
+        seed = findfirst(isequal(1.0), p0)
+        if !haskey(cascades_classes, seed)
+            cascades_classes[seed] = Dict{Int64, Dict{Int64, Int64}}()
+        end
+        add_activations_to_seed!(cascades_classes[seed], tau)
+    end
+    return cascades_classes
+end
+
+"""
     get_objective(marginals, tau)
 
 Caclulates the objective function of given activation times tau according to given marginals
@@ -134,9 +175,31 @@ function get_objective(marginals::Array{Float64, 2}, tau::Array{Int64,1})
 end
 
 """
+    get_objective(marginals, seed)
+
+Caclulates the objective function of given activation times paired with an initial point (seed)
+"""
+function get_objective(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int64, Int64}})
+    T::Int64 = size(marginals)[1]
+    objective::Float64 = 0.0
+    for i in keys(seed)
+        for t in keys(seed[i])
+            if t == 1  # I assume that T > 1 (!!!)
+                objective += log(marginals[t, i]) * seed[i][t]
+            elseif t == T
+                objective += log(1.0 - marginals[t-1, i]) * seed[i][t]
+            elseif t > 1
+                objective += log(marginals[t, i] - marginals[t-1, i]) * seed[i][t]
+            end
+        end
+    end
+    return objective
+end
+
+"""
     lambda_from_marginals(marginals, tau)
 
-Calculates marginals lagrange coefficients
+Calculates marginals lagrange coefficients for a given cascade with activation times tau
 """
 function lambda_from_marginals(marginals::Array{Float64, 2}, tau::Array{Int64,1})
     T = size(marginals)[1]
@@ -151,6 +214,30 @@ function lambda_from_marginals(marginals::Array{Float64, 2}, tau::Array{Int64,1}
         elseif t > 1
             lambda[t, i] = -1.0 / (marginals[t, i] - marginals[t-1, i])
             lambda[t-1, i] = -1.0 / (marginals[t-1, i] - marginals[t, i])
+        end
+    end
+    return lambda
+end
+
+"""
+    lambda_from_marginals(marginals, seed)
+
+Calculates marginals lagrange coefficients for a given initial condition (seed)
+"""
+function lambda_from_marginals(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int64, Int64}})
+    T::Int64 = size(marginals)[1]
+    n::Int64 = size(marginals)[2]
+    lambda = zeros(Float64, T, n)
+    for i in keys(seed)
+        for t in keys(seed[i])
+            if t == 1  # I assume that T > 1 (!!!)
+                lambda[t, i] -= seed[i][t] / marginals[t, i]
+            elseif t == T
+                lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - 1.0)
+            elseif t > 1
+                lambda[t, i] -= seed[i][t] / (marginals[t, i] - marginals[t-1, i])
+                lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - marginals[t, i])
+            end
         end
     end
     return lambda
@@ -195,7 +282,7 @@ end
 """
     get_gradient(cascades, g)
 
-Calculates gradient for alphas according to lagrange derivative
+Calculates gradient for alphas according to lagrange derivative summed over cascades
 """
 function get_gradient(cascades::Array{Array{UInt8,2},1}, g::Graph)
     D_ij = Dict{Array{Int64, 1}, Float64}()
@@ -225,4 +312,34 @@ function get_gradient(cascades::Array{Array{UInt8,2},1}, g::Graph)
         end
     end
 return D_ij, objective
+end
+
+"""
+    get_gradient(cascades_classes, g)
+
+Calculates gradient for alphas according to lagrange derivative summed over classes of cascades
+"""
+function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int64}}}, g::Graph, T::Int64)
+    D_ij = Dict{Array{Int64, 1}, Float64}()
+    # moze szybciej bedzie tutaj zaalokowac marginals i messages?
+    objective = 0.0
+    for seed in keys(cascades_classes)
+        p0 = zeros(Float64, g.n)
+        p0[seed] = 1.0
+        marginals, messages = dynamic_messsage_passing(g, p0, T)
+        lambda = lambda_from_marginals(marginals, cascades_classes[seed])
+        lambda_ij = get_lambda_ij(lambda, g, messages, p0)
+
+        objective += get_objective(marginals, cascades_classes[seed])
+        for (edge, v) in g.edgelist  # bare in mind that 'v' could be zero (maybe an 'if' is needed?)
+            if !haskey(D_ij, edge)
+                D_ij[edge] = sum(lambda_ij[edge] .* messages[edge] +
+                    lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+            else
+                D_ij[edge] += sum(lambda_ij[edge] .* messages[edge] +
+                    lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+            end
+        end
+    end
+    return D_ij, objective
 end
