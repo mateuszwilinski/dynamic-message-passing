@@ -284,7 +284,7 @@ end
 
 Calculates gradient for alphas according to lagrange derivative summed over cascades
 """
-function get_gradient(cascades::Array{Array{UInt8,2},1}, g::Graph)
+function get_gradient(cascades::Array{Array{UInt8,2},1}, g::Graph, unobserved::Array{Int64, 1})
     D_ij = Dict{Array{Int64, 1}, Float64}()
     all_marginals = Dict{Int64, Array{Float64,2}}()
     all_messages = Dict{Int64, Dict{Array{Int64,1}, Array{Float64,1}}}()
@@ -298,6 +298,7 @@ function get_gradient(cascades::Array{Array{UInt8,2},1}, g::Graph)
             all_marginals[seed], all_messages[seed] = dynamic_messsage_passing(g, p0, T)
         end
         lambda = lambda_from_marginals(all_marginals[seed], tau)
+        lambda[:, unobserved] .= 0.0
         lambda_ij = get_lambda_ij(lambda, g, all_messages[seed], p0)
 
         objective += get_objective(all_marginals[seed], tau)
@@ -319,7 +320,7 @@ end
 
 Calculates gradient for alphas according to lagrange derivative summed over classes of cascades
 """
-function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int64}}}, g::Graph, T::Int64)
+function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int64}}}, g::Graph, T::Int64, unobserved::Array{Int64, 1})
     D_ij = Dict{Array{Int64, 1}, Float64}()
     # moze szybciej bedzie tutaj zaalokowac marginals i messages?
     objective = 0.0
@@ -328,6 +329,7 @@ function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int6
         p0[seed] = 1.0
         marginals, messages = dynamic_messsage_passing(g, p0, T)
         lambda = lambda_from_marginals(marginals, cascades_classes[seed])
+        lambda[:, unobserved] .= 0.0
         lambda_ij = get_lambda_ij(lambda, g, messages, p0)
 
         objective += get_objective(marginals, cascades_classes[seed])
@@ -343,3 +345,5 @@ function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int6
     end
     return D_ij, objective
 end
+
+# TODO: popraw 'unobserved', zeby bylo zgrabniejsze (!!!)
