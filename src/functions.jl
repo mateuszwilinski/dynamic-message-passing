@@ -280,7 +280,7 @@ function get_lambda_ij(lambda::Array{Float64, 2}, g::Graph, messages::Dict{Array
 end
 
 """
-    get_gradient(cascades, g)
+    get_gradient(cascades, g, unobserved)
 
 Calculates gradient for alphas according to lagrange derivative summed over cascades
 """
@@ -316,7 +316,7 @@ return D_ij, objective
 end
 
 """
-    get_gradient(cascades_classes, g)
+    get_gradient(cascades_classes, g, T, unobserved)
 
 Calculates gradient for alphas according to lagrange derivative summed over classes of cascades
 """

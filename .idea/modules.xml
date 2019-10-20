@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/repo.iml" filepath="$PROJECT_DIR$/.idea/repo.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/dynamic-message-passing.iml" filepath="$PROJECT_DIR$/.idea/dynamic-message-passing.iml" />
     </modules>
   </component>
 </project>
