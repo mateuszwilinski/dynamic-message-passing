@@ -177,23 +177,23 @@ function get_objective(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int6
 end
 
 """
-    lambda_from_marginals(marginals, seed, n_observed, n_cascades, s)
+    lambda_from_marginals(marginals, seed)
 
 Calculates marginals lagrange coefficients for a given initial condition (seed)
 """
-function lambda_from_marginals(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int64, Int64}}, n_observed::Int64, n_cascades::Int64, s::Int64)
+function lambda_from_marginals(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int64, Int64}})
     T::Int64 = size(marginals)[1]
     n::Int64 = size(marginals)[2]
     lambda = zeros(Float64, T, n)
     for i in keys(seed)
         for t in keys(seed[i])
             if t == 1  # I assume that T > 1 (!!!)
-                lambda[t, i] -= seed[i][t] / marginals[t, i] / n_observed / n_cascades
+                lambda[t, i] -= seed[i][t] / marginals[t, i]
             elseif t == T
-                lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - 1.0) / n_observed / n_cascades
+                lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - 1.0)
             elseif t > 1
-                lambda[t, i] -= seed[i][t] / (marginals[t, i] - marginals[t-1, i]) / n_observed / n_cascades
-                lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - marginals[t, i]) / n_observed / n_cascades
+                lambda[t, i] -= seed[i][t] / (marginals[t, i] - marginals[t-1, i])
+                lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - marginals[t, i])
             end
         end
     end
@@ -241,9 +241,7 @@ end
 
 Calculates gradient for alphas according to lagrange derivative summed over classes of cascades
 """
-function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int64}}}, g::Graph, T::Int64, unobserved::Array{Int64, 1}, n_cascades::Int64)
-    n_observed::Int64 = g.n - length(unobserved)
-    n_seeds::Int64 = length(cascades_classes)
+function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int64}}}, g::Graph, T::Int64, unobserved::Array{Int64, 1})
     D_ij = Dict{Array{Int64, 1}, Float64}()
     # moze szybciej bedzie tutaj zaalokowac marginals i messages?
     objective = 0.0
@@ -251,7 +249,7 @@ function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int6
         p0 = zeros(Float64, g.n)
         p0[seed] = 1.0
         marginals, messages = dynamic_messsage_passing(g, p0, T)
-        lambda = lambda_from_marginals(marginals, cascades_classes[seed], n_observed, n_cascades, n_seeds)
+        lambda = lambda_from_marginals(marginals, cascades_classes[seed])
         lambda[:, unobserved] .= 0.0
         lambda_ij = get_lambda_ij(lambda, g, messages, p0)
 
