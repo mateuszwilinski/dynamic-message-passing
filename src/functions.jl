@@ -256,10 +256,10 @@ function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int6
         objective += get_objective(marginals, cascades_classes[seed])
         for (edge, v) in g.edgelist  # bare in mind that 'v' could be zero (maybe an 'if' is needed?)
             if !haskey(D_ij, edge)
-                D_ij[edge] = g.n * g.n * sum(lambda_ij[edge] .* messages[edge] +
+                D_ij[edge] = sum(lambda_ij[edge] .* messages[edge] +
                     lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
             else
-                D_ij[edge] += g.n * g.n * sum(lambda_ij[edge] .* messages[edge] +
+                D_ij[edge] += sum(lambda_ij[edge] .* messages[edge] +
                     lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
             end
         end
