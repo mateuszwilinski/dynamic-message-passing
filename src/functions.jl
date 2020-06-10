@@ -190,10 +190,14 @@ function lambda_from_marginals(marginals::Array{Float64, 2}, seed::Dict{Int64, D
             if t == 1  # I assume that T > 1 (!!!)
                 lambda[t, i] -= seed[i][t] / marginals[t, i]
             elseif t == T
-                lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - 1.0)
+                if marginals[t-1, i] != 1.0
+                    lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - 1.0)
+                end
             elseif t > 1
-                lambda[t, i] -= seed[i][t] / (marginals[t, i] - marginals[t-1, i])
-                lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - marginals[t, i])
+                if marginals[t, i] - marginals[t-1, i] != 0.0
+                    lambda[t, i] -= seed[i][t] / (marginals[t, i] - marginals[t-1, i])
+                    lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - marginals[t, i])
+                end
             end
         end
     end
@@ -237,13 +241,55 @@ function get_lambda_ij(lambda::Array{Float64, 2}, g::Graph, messages::Dict{Array
 end
 
 """
+    get_gradient_hard_way(edge, p0, messages, lambda, lambda_ij, g, T)
+
+Calculates gradient for single edge (for given cascade class)
+"""
+function get_gradient_hard_way(edge::Array{Int64,1}, p0::Array{Float64, 1},
+        messages::Dict{Array{Int64,1}, Array{Float64,1}}, lambda::Array{Float64, 2},
+        lambda_ij::Dict{Array{Int64,1}, Array{Float64,1}}, g::Graph, T::Int64)
+    D_edge = 0.0
+    i_neighbors = size(g.neighbors[edge[1]])[1]
+    j_neighbors = size(g.neighbors[edge[2]])[1]
+    for t in 2:T
+        temp_i = lambda[t, edge[1]] * messages[[edge[2], edge[1]]][t-1] * (1.0 - p0[edge[1]])
+        temp_j = lambda[t, edge[2]] * messages[[edge[1], edge[2]]][t-1] * (1.0 - p0[edge[2]])
+        temp_ij = repeat([messages[[edge[1], edge[2]]][t-1] * (1.0 - p0[edge[2]])], j_neighbors)
+        temp_ji = repeat([messages[[edge[2], edge[1]]][t-1] * (1.0 - p0[edge[1]])], i_neighbors)
+        for k in 1:i_neighbors
+            if g.neighbors[edge[1]][k] != edge[2]
+                temp = (1.0 - g.edgelist[sort([g.neighbors[edge[1]][k], edge[1]])] *
+                    messages[[g.neighbors[edge[1]][k], edge[1]]][t-1])
+                temp_i *= temp
+                temp_ji[1:end .!= k] *= temp
+                temp_ji[k] *= lambda_ij[[edge[1], g.neighbors[edge[1]][k]]][t]
+            else
+                temp_ji[k] = 0.0
+            end
+        end
+        for k in 1:j_neighbors
+            if g.neighbors[edge[2]][k] != edge[1]
+                temp = (1.0 - g.edgelist[sort([g.neighbors[edge[2]][k], edge[2]])] *
+                    messages[[g.neighbors[edge[2]][k], edge[2]]][t-1])
+                temp_j *= temp
+                temp_ij[1:end .!= k] *= temp
+                temp_ij[k] *= lambda_ij[[edge[2], g.neighbors[edge[2]][k]]][t]
+            else
+                temp_ij[k] = 0.0
+            end
+        end
+        D_edge += temp_j + sum(temp_ij) + temp_i + sum(temp_ji)
+    end
+    return D_edge
+end
+
+"""
     get_gradient(cascades_classes, g, T, unobserved)
 
 Calculates gradient for alphas according to lagrange derivative summed over classes of cascades
 """
 function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int64}}}, g::Graph, T::Int64, unobserved::Array{Int64, 1})
     D_ij = Dict{Array{Int64, 1}, Float64}()
-    # moze szybciej bedzie tutaj zaalokowac marginals i messages?
     objective = 0.0
     for seed in keys(cascades_classes)
         p0 = zeros(Float64, g.n)
@@ -254,17 +300,40 @@ function get_gradient(cascades_classes::Dict{Int64, Dict{Int64, Dict{Int64, Int6
         lambda_ij = get_lambda_ij(lambda, g, messages, p0)
 
         objective += get_objective(marginals, cascades_classes[seed])
-        for (edge, v) in g.edgelist  # bare in mind that 'v' could be zero (maybe an 'if' is needed?)
+        for (edge, v) in g.edgelist
             if !haskey(D_ij, edge)
-                D_ij[edge] = sum(lambda_ij[edge] .* messages[edge] +
-                    lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+                if v == 0.0
+                    D_ij[edge] = get_gradient_hard_way(edge, p0, messages,
+                        lambda, lambda_ij, g, T)
+                else
+                    D_ij[edge] = sum(lambda_ij[edge] .* messages[edge] +
+                        lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+                end
             else
-                D_ij[edge] += sum(lambda_ij[edge] .* messages[edge] +
-                    lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+                if v == 0.0
+                    D_ij[edge] += get_gradient_hard_way(edge, p0, messages,
+                        lambda, lambda_ij, g, T)
+                else
+                    D_ij[edge] += sum(lambda_ij[edge] .* messages[edge] +
+                        lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+                end
             end
         end
     end
     return D_ij, objective
 end
 
-# TODO: how to improve 'unobserved'? (!!!)
+"""
+    find_unobserved_leaves(g, unobserved)
+
+Returns edges which connects unobserved leaves
+"""
+function find_unobserved_leaves(g::Graph, unobserved::Array{Int64, 1})
+    leaves = [UInt8[]]
+    for (i, ns) in enumerate(g.neighbors)
+        if (length(ns) == 1) & (i in unobserved)
+            append!(leaves, [sort([i, ns[1]])])
+        end
+    end
+    return leaves[2:end]
+end
