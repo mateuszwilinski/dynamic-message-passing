@@ -72,7 +72,7 @@ end
 """
     cascade(g, p0, T)
 
-Generate a cacade of length T on a graph g with initial condition p0
+Generate a cascade of length T on a graph g with initial condition p0
 """
 function cascade(g::Graph, p0::Array{Float64, 1}, T::Int64)
     active = zeros(UInt8, T, g.n)
@@ -97,7 +97,7 @@ end
 """
     times_from_cascade(cascade)
 
-Returns activation times of a given cacade
+Returns activation times of a given cascade
 """
 function times_from_cascade(cascade::Array{UInt8, 2})
     n = size(cascade)[2]
