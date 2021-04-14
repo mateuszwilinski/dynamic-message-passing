@@ -1,7 +1,7 @@
 using DelimitedFiles
 
 include("src/structures.jl")
-include("src/functions.jl")
+include("src/dynamic_message_passing.jl")
 
 function main()
     # Parameters

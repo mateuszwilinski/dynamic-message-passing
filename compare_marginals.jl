@@ -2,7 +2,10 @@ using DelimitedFiles
 using StatsBase
 
 include("src/structures.jl")
-include("src/functions.jl")
+include("src/network_tools.jl")
+include("src/cascade_tools.jl")
+include("src/dynamic_message_passing.jl")
+include("src/lagrange_dmp_method.jl")
 
 function main()
     # Parameters
@@ -50,7 +53,7 @@ function main()
         iter = 0
         cascades_classes = preprocess_cascades(cascades)
         while (difference > threshold) & (iter < max_iter)
-            D, objective = get_gradient(cascades_classes, g_temp, T, unobserved)
+            D, objective = get_gradient(cascades_classes, g_temp, T)
 
             iter += 1
             difference = 0.0
@@ -76,8 +79,8 @@ function main()
             real_marginals = readdlm(string("data/networks/", network_type, "_", k, "_", n, "_", T, "_", f, "_", s, "_marginals.csv"), ';', Float64)
 
             diff_alpha = sum(abs.(values(merge(-, g.edgelist, g_temp.edgelist)))) / m
-            _, obj = get_gradient(cascades_classes, g, T, unobserved)
-            _, obj_temp = get_gradient(cascades_classes, g_temp, T, unobserved)
+            _, obj = get_gradient(cascades_classes, g, T)
+            _, obj_temp = get_gradient(cascades_classes, g_temp, T)
 
             diff_alpha_margins = sum(abs.(alpha_marginals - real_marginals)) / sum(real_marginals)
             diff_margins = sum(abs.(estimated_marginals - real_marginals)) / sum(real_marginals)
