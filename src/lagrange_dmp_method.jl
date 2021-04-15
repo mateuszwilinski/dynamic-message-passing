@@ -35,8 +35,7 @@ end
 Calculates messages lagrange coefficients
 """
 function get_lambda_ij(lambda::Array{Float64, 2}, g::Graph,
-                        messages::Dict{Array{Int64, 1}, Array{Float64, 1}},
-                        p0::Array{Float64, 1})
+                       messages::Dict{Array{Int64, 1}, Array{Float64, 1}}, p0::Array{Float64, 1})
     # initialising lambdas
     T = size(lambda)[1]
     lambda_j = zeros(Float64, T, g.n)
@@ -54,15 +53,46 @@ function get_lambda_ij(lambda::Array{Float64, 2}, g::Graph,
                                    (1.0 - messages[Int64[j, neighbor]][t+1]))
             end
         end
-        for e in keys(lambda_ij)  # TODO: uwzglednij mozliwosc, ze bedzie dzielenie przez zero (!!!)
-            lambda_ij[e][t] = (g.edgelist[sort(e)] *
-                               (lambda[t+1, e[2]] * (1.0 - messages[reverse(e)][t+1]) +
-                                (lambda_j[t, e[2]] - lambda_ij[reverse(e)][t+1] *
-                                 (1.0 - messages[reverse(e)][t+1])) /
-                                (1.0 - g.edgelist[sort(e)] * messages[e][t])))
+        for e in keys(lambda_ij)
+            temp_prob = 1.0 - g.edgelist[sort(e)] * messages[e][t]
+            if temp_prob == 0.0
+                lambda_ij[e][t] = get_lambda_ij_hard_way(lambda_ij, messages, p0,
+                                                         g, lambda[t+1, e[2]], e, t)
+            else
+                lambda_ij[e][t] = (g.edgelist[sort(e)] *
+                                   (lambda[t+1, e[2]] * (1.0 - messages[reverse(e)][t+1]) +
+                                    (lambda_j[t, e[2]] - lambda_ij[reverse(e)][t+1] *
+                                     (1.0 - messages[reverse(e)][t+1])) / temp_prob))
+            end
         end
     end
     return lambda_ij
+end
+
+"""
+    get_lambda_ij_hard_way(lambda_ij, messages, p0, g, lambda_ti, e, t)
+
+...
+"""
+function get_lambda_ij_hard_way(lambda_ij::Dict{Array{Int64, 1}, Array{Float64, 1}},
+                                messages::Dict{Array{Int64, 1}, Array{Float64, 1}},
+                                p0::Array{Float64, 1}, g::Graph, lambda_ti::Float64,
+                                e::Array{Int64, 1}, t::Int64)
+    n_neighbors = size(g.in_neighbors[e[2]])[1]
+    temp_j = lambda_ti * g.edgelist[sort(e)] * (1.0 - p0[e[2]])
+    temp_ij = repeat([g.edgelist[sort(e)] * (1.0 - p0[e[2]])], n_neighbors)
+    for k in 1:n_neighbors
+        if g.in_neighbors[e[2]][k] != e[1]
+            temp = (1.0 - g.edgelist[sort([g.in_neighbors[e[2]][k], e[2]])] *
+                    messages[[g.in_neighbors[e[2]][k], e[2]]][t])
+            temp_j *= temp
+            temp_ij[1:end .!= k] *= temp
+            temp_ij[k] *= lambda_ij[[e[2], g.in_neighbors[e[2]][k]]][t+1]
+        else
+            temp_ij[k] = 0.0
+        end
+    end
+    return temp_j + sum(temp_ij)
 end
 
 """

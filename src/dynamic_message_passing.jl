@@ -43,16 +43,16 @@ function dynamic_messsage_passing(g::Graph, p0::Array{Float64, 1}, T::Int64)
 end
 
 """
-    get_message_hard_way(messages, g, p0, k, t)
+    get_message_hard_way(messages, g, p0, e, t)
 
-Computes the message for edge 'k' at time 't', assuming initial condition p0
+Computes the message for edge 'e' at time 't', assuming initial condition p0
 """
 function get_message_hard_way(messages::Dict{Array{Int64, 1}, Array{Float64, 1}}, g::Graph,
-                              p0::Array{Float64, 1}, k::Array{Int64, 1}, t::Int64)
-    message = 1.0 - p0[k[1]]
-    for neighbor in g.in_neighbors[k[1]]
-        if neighbor != k[2]
-            message *= 1.0 - g.edgelist[sort(Int64[neighbor, k[1]])] * messages[Int64[neighbor, k[1]]][t-1]
+                              p0::Array{Float64, 1}, e::Array{Int64, 1}, t::Int64)
+    message = 1.0 - p0[e[1]]
+    for neighbor in g.in_neighbors[e[1]]
+        if neighbor != e[2]
+            message *= 1.0 - g.edgelist[sort(Int64[neighbor, e[1]])] * messages[Int64[neighbor, e[1]]][t-1]
         end
     end
     return 1.0 - message
