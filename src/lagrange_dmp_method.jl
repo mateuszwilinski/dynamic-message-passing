@@ -72,7 +72,7 @@ end
 """
     get_lambda_ij_hard_way(lambda_ij, messages, p0, g, lambda_ti, e, t)
 
-...
+Computes the lambda_ij for edge 'e' at time 't', when the original implementation is indefinite
 """
 function get_lambda_ij_hard_way(lambda_ij::Dict{Array{Int64, 1}, Array{Float64, 1}},
                                 messages::Dict{Array{Int64, 1}, Array{Float64, 1}},
@@ -98,7 +98,7 @@ end
 """
     get_gradient_hard_way(edge, p0, messages, lambda, lambda_ij, g, T)
 
-Calculates gradient for single edge (for given cascade class)
+Computes gradient for single edge (for given cascade class)
 """
 function get_gradient_hard_way(edge::Array{Int64,1}, p0::Array{Float64, 1},
         messages::Dict{Array{Int64,1}, Array{Float64,1}}, lambda::Array{Float64, 2},
@@ -141,7 +141,7 @@ end
 """
     get_lagrange_gradient(cascades_classes, g, T)
 
-Calculates gradient for alphas according to lagrange derivative summed over classes of cascades
+Computes gradient for alphas according to lagrange derivative summed over classes of cascades
 """
 function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
                                g::Graph, T::Int64)

@@ -45,7 +45,7 @@ end
 """
     get_message_hard_way(messages, g, p0, e, t)
 
-Computes the message for edge 'e' at time 't', assuming initial condition p0
+Computes the message for edge 'e' at time 't', when the original implementation is indefinite
 """
 function get_message_hard_way(messages::Dict{Array{Int64, 1}, Array{Float64, 1}}, g::Graph,
                               p0::Array{Float64, 1}, e::Array{Int64, 1}, t::Int64)

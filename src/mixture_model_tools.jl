@@ -3,9 +3,9 @@ include("dynamic_message_passing.jl")
 include("lagrange_dmp_method.jl")
 
 """
-lambda_from_mixed_marginals(mixture_marginals, seed, T, n)
+    lambda_from_mixed_marginals(mixture_marginals, seed, T, n)
 
-... TODO: Update!
+Computes mixture marginals lagrange coefficients for a given initial condition (seed)
 """
 function lambda_from_mixed_marginals(mixture_marginals::Dict{Int64, Array{Float64, 2}},
                                      seed::Dict{Int64, Dict{Int64, Int64}}, T::Int64, n::Int64)
@@ -36,9 +36,9 @@ function lambda_from_mixed_marginals(mixture_marginals::Dict{Int64, Array{Float6
 end
 
 """
-get_mixture_gradient(cascades_classes, g_mixture, T)
+    get_mixture_gradient(cascades_classes, g_mixture, T)
 
-... TODO: Update!
+Computes gradient for alphas of the mixture model, using lagrange equations
 """
 function get_mixture_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
                               g_mixture::Dict{Int64, Graph}, T::Int64)
@@ -85,9 +85,9 @@ function get_mixture_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64
 end
 
 """
-get_mixture_marginals(g_mixture, p0, T)
+    get_mixture_marginals(g_mixture, p0, T)
 
-... TODO: Update!
+Computes marginals of a mixture model
 """
 function get_mixture_marginals(g_mixture::Dict{Int64, Graph}, p0::Array{Float64, 1}, T::Int64)
     n = length(p0)
@@ -100,9 +100,9 @@ function get_mixture_marginals(g_mixture::Dict{Int64, Graph}, p0::Array{Float64,
 end
 
 """
-get_mixture_objective(cascades_classes, g_mixture, T, n)
+    get_mixture_objective(cascades_classes, g_mixture, T, n)
 
-... TODO: Update!
+computes the objective of a mixture model
 """
 function get_mixture_objective(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
                                g_mixture::Dict{Int64, Graph}, T::Int64, n::Int64)
