@@ -150,11 +150,11 @@ function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int6
     for seeds in keys(cascades_classes)
         p0 = zeros(Float64, g.n)
         p0[seeds] .= 1.0
-        marginals, messages = dynamic_messsage_passing(g, p0, T)
+        marginals, messages = dmp_ic(g, p0, T)
         lambda = lambda_from_marginals(marginals, cascades_classes[seeds])
         lambda_ij = get_lambda_ij(lambda, g, messages, p0)
 
-        objective += get_objective(marginals, cascades_classes[seeds])
+        objective += get_ic_objective(marginals, cascades_classes[seeds])
         for (edge, v) in g.edgelist
             if !haskey(D_ij, edge)
                 if v == 0.0
@@ -189,8 +189,8 @@ function get_full_objective(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, 
     for seeds in keys(cascades_classes)
         p0 = zeros(Float64, g.n)
         p0[seeds] .= 1.0
-        marginals, messages = dynamic_messsage_passing(g, p0, T)
-        objective += get_objective(marginals, cascades_classes[seeds])
+        marginals, messages = dmp_ic(g, p0, T)
+        objective += get_ic_objective(marginals, cascades_classes[seeds])
     end
     return objective
 end

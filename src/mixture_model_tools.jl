@@ -54,7 +54,7 @@ function get_mixture_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64
         for k in keys(g_mixture)
             p0[k] = zeros(Float64, g_mixture[k].n)
             p0[k][seed] .= 1.0
-            marginals[k], messages[k] = dynamic_messsage_passing(g_mixture[k], p0[k], T)
+            marginals[k], messages[k] = dmp_ic(g_mixture[k], p0[k], T)
         end
         lambda = lambda_from_mixed_marginals(marginals, cascades_classes[seed], T, g_mixture[1].n)
 
@@ -93,7 +93,7 @@ function get_mixture_marginals(g_mixture::Dict{Int64, Graph}, p0::Array{Float64,
     n = length(p0)
     marginals = zeros(Float64, T, n)
     for k in keys(g_mixture)
-        temp, _ = dynamic_messsage_passing(g_mixture[k], p0, T)
+        temp, _ = dmp_ic(g_mixture[k], p0, T)
         marginals += temp
     end
     return marginals
