@@ -1,10 +1,10 @@
 
 """
-    cascade(g, p0, T)
+    cascade_ic(g, p0, T)
 
 Generate a cascade of length T on a graph g with initial condition p0
 """
-function cascade(g::Graph, p0::Array{Float64, 1}, T::Int64)
+function cascade_ic(g::Graph, p0::Array{Float64, 1}, T::Int64)
     active = zeros(UInt8, T, g.n)
     active[1, :] = (rand(g.n) .< p0)
     active[2:end, :] = reshape(repeat(active[1, :] * UInt8(2), inner=T-1), (T-1, g.n))
@@ -16,6 +16,33 @@ function cascade(g::Graph, p0::Array{Float64, 1}, T::Int64)
                     if rand() < g.edgelist[sort([i, j])]
                         active[t, j] = 1
                         active[(t+1):end, j] = repeat(UInt8[2], inner=T-t)
+                    end
+                end
+            end
+        end
+    end
+    return active
+end
+
+"""
+    cascade_si(g, p0, T)
+
+Generate a cascade of length T on a graph g with initial condition p0
+"""
+function cascade_si(g::Graph, p0::Array{Float64, 1}, T::Int64)
+    active = zeros(UInt8, T, g.n)
+    active[1, :] = (rand(g.n) .< p0)
+    active[2:end, :] = reshape(repeat(active[1, :] * UInt8(1), inner=T-1), (T-1, g.n))
+    # active[2:end, :] = reshape(repeat(active[1, :] * UInt8(2), inner=T-1), (T-1, g.n))
+    for t in 2:T
+        actives = findall(x -> x == 1, active[t-1, :])  # active nodes
+        for i in actives
+            for j in g.neighbors[i]
+                if active[t, j] .== 0
+                    if rand() < g.edgelist[sort([i, j])]
+                        active[t:end, j] .= 1
+                        # active[t, j] = 1
+                        # active[(t+1):end, j] = repeat(UInt8[2], inner=T-t)
                     end
                 end
             end
