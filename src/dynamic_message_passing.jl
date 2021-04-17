@@ -29,12 +29,12 @@ function dynamic_messsage_passing(g::Graph, p0::Array{Float64, 1}, T::Int64)
             end  # TODO: Przyjrzyj sie ponizszemu, czy nie da sie tego poprawic
             marginals[t, i] = max(marginals[t-1, i], 1.0 - marginals[t, i])  # numerical safeguard
         end
-        for (k, v) in messages
-            temp_prob = 1.0 - g.edgelist[sort(Int64[k[1], k[2]])] * messages[Int64[k[2], k[1]]][t-1]
+        for (e, v) in messages
+            temp_prob = 1.0 - g.edgelist[sort(e)] * messages[Int64[e[2], e[1]]][t-1]
             if temp_prob == 0.0
-                v[t] = get_message_hard_way(messages, g, p0, k, t)
+                v[t] = get_message_hard_way(messages, g, p0, e, t)
             else
-                v[t] = 1.0 - (1.0 - marginals[t, k[1]]) / temp_prob
+                v[t] = 1.0 - (1.0 - marginals[t, e[1]]) / temp_prob
             end  # TODO: Przyjrzyj sie ponizszemu, czy nie da sie tego poprawic
             v[t] = max(v[t], v[t-1])  # numerical safeguard
         end
