@@ -1,4 +1,6 @@
 /data/
 /old/
 /.idea/
+/.ipynb_checkpoints/
 .DS_Store
+*.ipynb

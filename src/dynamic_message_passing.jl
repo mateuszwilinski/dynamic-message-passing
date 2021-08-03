@@ -26,16 +26,63 @@ function dmp_ic(g::Graph, p0::Array{Float64, 1}, T::Int64)
             for neighbor in g.neighbors[i]
                 marginals[t, i] *= (1.0 - g.edgelist[sort(Int64[neighbor, i])] *
                                     messages[Int64[neighbor, i]][t-1])
-            end  # TODO: Przyjrzyj sie ponizszemu, czy nie da sie tego poprawic
+            end  # TODO: can we improve line below?
             marginals[t, i] = max(marginals[t-1, i], 1.0 - marginals[t, i])  # numerical safeguard
         end
         for (e, v) in messages
-            temp_prob = 1.0 - g.edgelist[sort(e)] * messages[Int64[e[2], e[1]]][t-1]
+            temp_prob = 1.0 - g.edgelist[sort(e)] * messages[reverse(e)][t-1]
             if temp_prob == 0.0
                 v[t] = get_ic_message_hard_way(messages, g, p0, e, t)
             else
                 v[t] = 1.0 - (1.0 - marginals[t, e[1]]) / temp_prob
-            end  # TODO: Przyjrzyj sie ponizszemu, czy nie da sie tego poprawic
+            end  # TODO: can we improve line below?
+            v[t] = max(v[t], v[t-1])  # numerical safeguard
+        end
+    end
+    return marginals, messages
+end
+
+"""
+    dmp_ic(g, p0, T)
+
+Computes the marginals and messages for cascade of length T on a directed graph g
+with initial condition p0
+"""
+function dmp_ic(g::DirGraph, p0::Array{Float64, 1}, T::Int64)
+    # initialising marginals and messages
+    marginals = zeros(Float64, T, g.n)
+    messages = Dict{Array{Int64, 1}, Array{Float64, 1}}()
+    for edge in keys(g.edgelist)
+        messages[edge] = zeros(Float64, T)
+    end
+
+    # initial conditions
+    marginals[1, :] = p0
+    for (k, v) in messages
+        v[1] = p0[k[1]]
+    end
+
+    # DMP
+    for t in 2:T
+        for i in 1:g.n
+            marginals[t, i] = 1.0 - p0[i]
+            for neighbor in g.in_neighbors[i]
+                marginals[t, i] *= (1.0 - g.edgelist[Int64[neighbor, i]] *
+                                    messages[Int64[neighbor, i]][t-1])
+            end  # TODO: can we improve line below?
+            marginals[t, i] = max(marginals[t-1, i], 1.0 - marginals[t, i])  # numerical safeguard
+        end
+        for (e, v) in messages
+            if haskey(g.edgelist, reverse(e))
+                temp_prob = 1.0 - g.edgelist[reverse(e)] * messages[reverse(e)][t-1]
+                if temp_prob == 0.0
+                    v[t] = get_ic_message_hard_way(messages, g, p0, e, t)
+                else
+                    v[t] = 1.0 - (1.0 - marginals[t, e[1]]) / temp_prob
+                end
+            else
+                v[t] = marginals[t, e[1]]
+            end  # TODO: can we improve line below?
             v[t] = max(v[t], v[t-1])  # numerical safeguard
         end
     end
@@ -50,9 +97,27 @@ Computes the message for edge 'e' at time 't', when the original implementation 
 function get_ic_message_hard_way(messages::Dict{Array{Int64, 1}, Array{Float64, 1}}, g::Graph,
                                  p0::Array{Float64, 1}, e::Array{Int64, 1}, t::Int64)
     message = 1.0 - p0[e[1]]
-    for neighbor in g.in_neighbors[e[1]]
+    for neighbor in g.neighbors[e[1]]
         if neighbor != e[2]
             message *= 1.0 - g.edgelist[sort(Int64[neighbor, e[1]])] * messages[Int64[neighbor, e[1]]][t-1]
+        end
+    end
+    return 1.0 - message
+end
+
+"""
+    get_ic_message_hard_way(messages, g, p0, e, t)
+
+Computes the message for edge 'e' at time 't', when the original implementation is indefinite
+in the case of directed graphs
+"""
+function get_ic_message_hard_way(messages::Dict{Array{Int64, 1}, Array{Float64, 1}},
+                                 g::DirGraph, p0::Array{Float64, 1}, e::Array{Int64, 1},
+                                 t::Int64)
+    message = 1.0 - p0[e[1]]
+    for neighbor in g.in_neighbors[e[1]]
+        if neighbor != e[2]
+            message *= 1.0 - g.edgelist[Int64[neighbor, e[1]]] * messages[Int64[neighbor, e[1]]][t-1]
         end
     end
     return 1.0 - message
@@ -92,7 +157,7 @@ function dmp_si(g::Graph, p0::Array{Float64, 1}, T::Int64)
             marginals[t, i] = 1.0 - p0[i]
             for neighbor in g.neighbors[i]
                 marginals[t, i] *= msg_theta[Int64[neighbor, i]][t]
-            end  # TODO: moze potrzebny jest safeguard jak dla IC?
+            end  # TODO: maybe we need a safeguard, like for IC?
         end
         # theta phi
         for (e, w) in msg_phi

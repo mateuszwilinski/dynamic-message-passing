@@ -27,6 +27,22 @@ function neighbors_from_edges(edges::Dict{Array{Int64, 1}, Real}, n::Int64)
 end
 
 """
+    dir_neighbors_from_edges(edges, n)
+
+Compute in- and out-neighbors for each of n nodes, based on the list of edges for
+directed network
+"""
+function dir_neighbors_from_edges(edges::Dict{Array{Int64, 1}, Real}, n::Int64)
+    out_neighbors = [Int64[] for i in 1:n]
+    in_neighbors = [Int64[] for i in 1:n]
+    for edge in edges
+        push!(out_neighbors[edge[1][1]], edge[1][2])
+        push!(in_neighbors[edge[1][2]], edge[1][1])
+    end
+    return out_neighbors, in_neighbors
+end
+
+"""
     find_leaves(g)
 
 Returns array of leaves
