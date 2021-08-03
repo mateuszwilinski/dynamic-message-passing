@@ -74,7 +74,7 @@ end
 
 Calculates messages lagrange coefficients for a directed network
 """
-function get_lambda_ij(lambda::Array{Float64, 2}, g::DirGraph,
+function get_lambda_ij(lambda::Array{Float64, 2}, g::DirGraph, marginals::Array{Float64, 2},
                        messages::Dict{Array{Int64,1}, Array{Float64,1}}, p0::Array{Float64, 1})
     # initialising lambdas
     T = size(lambda)[1]
@@ -98,10 +98,17 @@ function get_lambda_ij(lambda::Array{Float64, 2}, g::DirGraph,
                 lambda_ij[e][t] = get_lambda_ij_hard_way(lambda_ij, messages, p0,
                                                          g, lambda[t+1, e[2]], e, t)
             else
-                lambda_ij[e][t] = (g.edgelist[e] *
-                                   (lambda[t+1, e[2]] * (1.0 - messages[reverse(e)][t+1]) +
-                                    (lambda_j[t, e[2]] - lambda_ij[reverse(e)][t+1] *
-                                     (1.0 - messages[reverse(e)][t+1])) / temp_prob))
+                if haskey(g.edgelist, reverse(e))
+                    lambda_ij[e][t] = (g.edgelist[e] *
+                                       (lambda[t+1, e[2]] * (1.0 - messages[reverse(e)][t+1]) +
+                                        (lambda_j[t, e[2]] - lambda_ij[reverse(e)][t+1] *
+                                         (1.0 - messages[reverse(e)][t+1])) / temp_prob))
+                else  # TODO: this may require extra checking
+                    lambda_ij[e][t] = (g.edgelist[e] *
+                                       (lambda[t+1, e[2]] * (1.0 - marginals[t+1, e[2]]) /
+                                        (1.0 - g.edgelist[e] * messages[e][t]) +
+                                        lambda_j[t, e[2]] / temp_prob))
+                end
             end
         end
     end
@@ -144,18 +151,27 @@ function get_lambda_ij_hard_way(lambda_ij::Dict{Array{Int64, 1}, Array{Float64, 
                                 messages::Dict{Array{Int64, 1}, Array{Float64, 1}},
                                 p0::Array{Float64, 1}, g::DirGraph, lambda_ti::Float64,
                                 e::Array{Int64, 1}, t::Int64)
-    n_neighbors = size(g.in_neighbors[e[2]])[1]
+    m_neighbors = size(g.in_neighbors[e[2]])[1]
+    k_neighbors = size(g.out_neighbors[e[2]])[1]
     temp_j = lambda_ti * g.edgelist[e] * (1.0 - p0[e[2]])
     temp_ij = repeat([g.edgelist[e] * (1.0 - p0[e[2]])], n_neighbors)
-    for k in 1:n_neighbors
-        if g.in_neighbors[e[2]][k] != e[1]
-            temp = (1.0 - g.edgelist[[g.in_neighbors[e[2]][k], e[2]]] *
-                    messages[[g.in_neighbors[e[2]][k], e[2]]][t])
-            temp_j *= temp
-            temp_ij[1:end .!= k] *= temp
-            temp_ij[k] *= lambda_ij[[e[2], g.in_neighbors[e[2]][k]]][t+1]
-        else
-            temp_ij[k] = 0.0
+
+    # the loops below correspond to equation (A7)
+    for m in 1:m_neighbors
+        if g.in_neighbors[e[2]][m] != e[1]
+            temp_j *= (1.0 - g.edgelist[[g.in_neighbors[e[2]][m], e[2]]] *
+                        messages[[g.in_neighbors[e[2]][m], e[2]]][t])
+        end
+    end
+    for k in 1:k_neighbors
+        if g.out_neighbors[e[2]][k] != e[1]
+            temp_ij *= lambda_ij[[e[2], g.out_neighbors[e[2]][k]]][t+1]
+            for m in 1:m_neighbors
+                if !(g.in_neighbors[e[2]][m] in [e[1], k])
+                    temp_ij *= (1.0 - g.edgelist[[g.in_neighbors[e[2]][m], e[2]]] *
+                                messages[[g.in_neighbors[e[2]][m], e[2]]][t])
+                end
+            end
         end
     end
     return temp_j + sum(temp_ij)
@@ -288,7 +304,7 @@ function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int6
         p0[seeds] .= 1.0
         marginals, messages = dmp_ic(g, p0, T)
         lambda = lambda_from_marginals(marginals, cascades_classes[seeds])
-        lambda_ij = get_lambda_ij(lambda, g, messages, p0)
+        lambda_ij = get_lambda_ij(lambda, g, marginals, messages, p0)
 
         objective += get_ic_objective(marginals, cascades_classes[seeds])
         for (edge, v) in g.edgelist

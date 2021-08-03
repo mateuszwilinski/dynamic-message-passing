@@ -27,9 +27,9 @@ function neighbors_from_edges(edges::Dict{Array{Int64, 1}, Real}, n::Int64)
 end
 
 """
-    neighbors_from_edges(edges, n)
+    dir_neighbors_from_edges(edges, n)
 
-Compute neighbors for each of n nodes, based on the list of edges for
+Compute in- and out-neighbors for each of n nodes, based on the list of edges for
 directed network
 """
 function dir_neighbors_from_edges(edges::Dict{Array{Int64, 1}, Real}, n::Int64)

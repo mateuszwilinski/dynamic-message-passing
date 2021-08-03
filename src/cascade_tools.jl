@@ -29,7 +29,7 @@ end
 
 Generate a cascade of length T on a graph g with initial condition p0
 """
-function cascade(g::DirGraph, p0::Array{Float64, 1}, T::Int64)
+function cascade_ic(g::DirGraph, p0::Array{Float64, 1}, T::Int64)
     active = zeros(UInt8, T, g.n)
     active[1, :] = (rand(g.n) .< p0)
     active[2:end, :] = reshape(repeat(active[1, :] * UInt8(2), inner=T-1), (T-1, g.n))

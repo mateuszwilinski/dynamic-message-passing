@@ -26,7 +26,7 @@ function dmp_ic(g::Graph, p0::Array{Float64, 1}, T::Int64)
             for neighbor in g.neighbors[i]
                 marginals[t, i] *= (1.0 - g.edgelist[sort(Int64[neighbor, i])] *
                                     messages[Int64[neighbor, i]][t-1])
-            end  # TODO: Przyjrzyj sie ponizszemu, czy nie da sie tego poprawic
+            end  # TODO: can we improve line below?
             marginals[t, i] = max(marginals[t-1, i], 1.0 - marginals[t, i])  # numerical safeguard
         end
         for (e, v) in messages
@@ -35,7 +35,7 @@ function dmp_ic(g::Graph, p0::Array{Float64, 1}, T::Int64)
                 v[t] = get_ic_message_hard_way(messages, g, p0, e, t)
             else
                 v[t] = 1.0 - (1.0 - marginals[t, e[1]]) / temp_prob
-            end  # TODO: Przyjrzyj sie ponizszemu, czy nie da sie tego poprawic
+            end  # TODO: can we improve line below?
             v[t] = max(v[t], v[t-1])  # numerical safeguard
         end
     end
@@ -69,16 +69,20 @@ function dmp_ic(g::DirGraph, p0::Array{Float64, 1}, T::Int64)
             for neighbor in g.in_neighbors[i]
                 marginals[t, i] *= (1.0 - g.edgelist[Int64[neighbor, i]] *
                                     messages[Int64[neighbor, i]][t-1])
-            end  # TODO: Przyjrzyj sie ponizszemu, czy nie da sie tego poprawic
+            end  # TODO: can we improve line below?
             marginals[t, i] = max(marginals[t-1, i], 1.0 - marginals[t, i])  # numerical safeguard
         end
         for (e, v) in messages
-            temp_prob = 1.0 - g.edgelist[reverse(e)] * messages[reverse(e)][t-1]
-            if temp_prob == 0.0
-                v[t] = get_ic_message_hard_way(messages, g, p0, e, t)
+            if haskey(g.edgelist, reverse(e))
+                temp_prob = 1.0 - g.edgelist[reverse(e)] * messages[reverse(e)][t-1]
+                if temp_prob == 0.0
+                    v[t] = get_ic_message_hard_way(messages, g, p0, e, t)
+                else
+                    v[t] = 1.0 - (1.0 - marginals[t, e[1]]) / temp_prob
+                end
             else
-                v[t] = 1.0 - (1.0 - marginals[t, e[1]]) / temp_prob
-            end  # TODO: Przyjrzyj sie ponizszemu, czy nie da sie tego poprawic
+                v[t] = marginals[t, e[1]]
+            end  # TODO: can we improve line below?
             v[t] = max(v[t], v[t-1])  # numerical safeguard
         end
     end
@@ -153,7 +157,7 @@ function dmp_si(g::Graph, p0::Array{Float64, 1}, T::Int64)
             marginals[t, i] = 1.0 - p0[i]
             for neighbor in g.neighbors[i]
                 marginals[t, i] *= msg_theta[Int64[neighbor, i]][t]
-            end  # TODO: moze potrzebny jest safeguard jak dla IC?
+            end  # TODO: maybe we need a safeguard, like for IC?
         end
         # theta phi
         for (e, w) in msg_phi
