@@ -35,7 +35,7 @@ function main()
     for f in 1:f_end
         # Generating IC model
         edges = readdlm(string("data/networks/", network_type, "_ext_", k, "_", n, "_", f, ".csv"), ' ', Int64) .+ 1
-        edge_weights = readdlm(string("data/networks/", net_type, "_ext_", k, "_", n, "_", f, "_weights.csv"),
+        edge_weights = readdlm(string("data/networks/", network_type, "_ext_", k, "_", n, "_", f, "_weights.csv"),
                                ' ', Float64)[1:end, 1]
         edgelist = edgelist_from_array(edges[1:m, 1:end], edge_weights[1:m])
         neighbors = neighbors_from_edges(edgelist, n)
@@ -44,7 +44,7 @@ function main()
 
         # Generating cascades
         cascades_times = zeros(Int64, n, M)
-        for c in 1:M
+        for i in 1:M
             seed = sample(observed, s, replace=false)
             p0 = zeros(Float64, n)
             p0[seed] .= 1.0
@@ -86,8 +86,8 @@ function main()
             end
         end
 
-        vals = zeros(k + l)
-        for i in 1:(k+l)
+        vals = zeros(m+l)
+        for i in 1:(m+l)
             e = edges[i, 1:end]
             vals[i] = g_temp.edgelist[e]
         end
@@ -103,3 +103,5 @@ function main()
                 max_fake, ";", mean_fake, ";", count_real, ";", count_fake)
     end
 end
+
+main()
