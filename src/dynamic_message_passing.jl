@@ -1,4 +1,6 @@
 
+include("structures.jl")
+
 """
     dmp_ic(g, p0, T)
 
