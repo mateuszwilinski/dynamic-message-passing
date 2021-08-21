@@ -16,7 +16,7 @@ function main()
     k = try parse(Int64, ARGS[3]) catch e 3 end  # degree for rr (er) or 'm' for bb
     T = try parse(Int64, ARGS[4]) catch e 20 end  # cascade time
     M = try parse(Int64, ARGS[5]) catch e 20 end  # number of cascades
-    l = try parse(Int64, ARGS[6]) catch e 16 end  # number of unobserved nodes
+    l = try parse(Int64, ARGS[6]) catch e 16 end  # number of extra edges
     d = try parse(Int64, ARGS[7]) catch e 1 end  # number of unobserved nodes
     f_end = try parse(Int64, ARGS[8]) catch e 10 end  # number of files
     s = try parse(Int64, ARGS[9]) catch e 1 end  # number of seeds
