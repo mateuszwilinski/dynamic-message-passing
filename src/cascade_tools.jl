@@ -134,6 +134,21 @@ function preprocess_cascades(cascades::Array{Int64, 2})
 end
 
 """
+    preprocess_single_class(cascades)
+
+Generates cascades in a class format, but with only one class. It is supposed to be used
+when there is a known, stochastic initial condition for all the cascades
+"""
+function preprocess_single_class(cascades::Array{Int64, 2})
+    cascades_class = Dict{Int64, Dict{Int64, Int64}}()
+    for i in 1:size(cascades)[2]
+        tau = cascades[:, i]
+        add_activations_to_seed!(cascades_class, tau)
+    end
+    return cascades_class
+end
+
+"""
     remove_unobserved!(cascades_classes, unobserved)
 
 Removes unobserved nodes from the dictionary of activated nodes
@@ -145,4 +160,63 @@ function remove_unobserved!(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, 
             delete!(cascades_classes[seed], key)
         end
     end
+end
+
+"""
+    local_cascade_likelihood(node, times, g, T)
+
+Calculates the local (for a given node in-connections) likelihood of a given cascade
+"""
+function local_cascade_likelihood(node::Int64, times::Array{Int64,1}, g::Graph, T::Int64)
+    p_i = 1.0
+    if (times[node] > 1)
+        temp = 1.0
+        for neighbor in g.neighbors[node]
+            if times[neighbor] < (times[node] - 1)
+                p_i *= 1.0 - g.edgelist[sort(Int64[neighbor, node])]
+            elseif times[neighbor] == (times[node] - 1)
+                temp *= 1.0 - g.edgelist[sort(Int64[neighbor, node])]
+            end
+        end
+        if times[node] != T
+            p_i *= 1 - temp
+        end
+    end
+    return p_i
+end
+
+"""
+    local_cascade_likelihood(node, times, g, T)
+
+Calculates the local (for a given node in-connections) likelihood of a given cascade
+"""
+function local_cascade_likelihood(node::Int64, times::Array{Int64,1}, g::DirGraph, T::Int64)
+    p_i = 1.0
+    if (times[node] > 1)
+        temp = 1.0
+        for neighbor in g.in_neighbors[node]
+            if times[neighbor] < (times[node] - 1)
+                p_i *= 1.0 - g.edgelist[Int64[neighbor, node]]
+            elseif times[neighbor] == (times[node] - 1)
+                temp *= 1.0 - g.edgelist[Int64[neighbor, node]]
+            end
+        end
+        if times[node] != T
+            p_i *= 1 - temp
+        end
+    end
+    return p_i
+end
+
+"""
+    cascade_likelihood(times, g, T)
+
+Calculates the likelihood of a given cascade (defined by activation times)
+"""
+function cascade_likelihood(times::Array{Int64,1}, g::Union{Graph, DirGraph}, T::Int64)
+    p_i = zeros(Real, g.n)
+    for i in 1:g.n
+        p_i[i] = log(local_cascade_likelihood(i, times, g, T))
+    end
+    return sum(p_i)
 end
