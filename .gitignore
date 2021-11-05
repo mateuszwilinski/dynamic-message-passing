@@ -1,4 +1,6 @@
 /data/
+/results/
+/notebooks/
 /old/
 /.idea/
 /.ipynb_checkpoints/

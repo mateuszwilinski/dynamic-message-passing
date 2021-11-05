@@ -4,7 +4,7 @@ include("dynamic_message_passing.jl")
 """
     lambda_from_marginals(marginals, seed)
 
-Computes marginals lagrange coefficients for a given initial condition (seed)
+Computes marginals lagrange coefficients for a given initial condition (seed).
 """
 function lambda_from_marginals(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int64, Int64}})
     T::Int64 = size(marginals)[1]
@@ -32,7 +32,7 @@ end
 """
     get_lambda_ij(lambda, g, messages, p0)
 
-Calculates messages lagrange coefficients
+Calculates messages lagrange coefficients.
 """
 function get_lambda_ij(lambda::Array{Float64, 2}, g::Graph,
                        messages::Dict{Array{Int64, 1}, Array{Float64, 1}}, p0::Array{Float64, 1})
@@ -70,9 +70,9 @@ function get_lambda_ij(lambda::Array{Float64, 2}, g::Graph,
 end
 
 """
-    get_lambda_ij(lambda, g, messages, p0)
+    get_lambda_ij(lambda, g, marginals, messages, p0)
 
-Calculates messages lagrange coefficients for a directed network
+Calculates messages lagrange coefficients for a directed network.
 """
 function get_lambda_ij(lambda::Array{Float64, 2}, g::DirGraph, marginals::Array{Float64, 2},
                        messages::Dict{Array{Int64,1}, Array{Float64,1}}, p0::Array{Float64, 1})
@@ -105,9 +105,8 @@ function get_lambda_ij(lambda::Array{Float64, 2}, g::DirGraph, marginals::Array{
                                          (1.0 - messages[reverse(e)][t+1])) / temp_prob))
                 else  # TODO: this may require extra checking
                     lambda_ij[e][t] = (g.edgelist[e] *
-                                       (lambda[t+1, e[2]] * (1.0 - marginals[t+1, e[2]]) /
-                                        (1.0 - g.edgelist[e] * messages[e][t]) +
-                                        lambda_j[t, e[2]] / temp_prob))
+                                       (lambda[t+1, e[2]] * (1.0 - marginals[t+1, e[2]]) +
+                                        lambda_j[t, e[2]]) / temp_prob)
                 end
             end
         end
@@ -118,7 +117,7 @@ end
 """
     get_lambda_ij_hard_way(lambda_ij, messages, p0, g, lambda_ti, e, t)
 
-Computes the lambda_ij for edge 'e' at time 't', when the original implementation is indefinite
+Computes the lambda_ij for edge 'e' at time 't', when the original implementation is indefinite.
 """
 function get_lambda_ij_hard_way(lambda_ij::Dict{Array{Int64, 1}, Array{Float64, 1}},
                                 messages::Dict{Array{Int64, 1}, Array{Float64, 1}},
@@ -145,7 +144,7 @@ end
     get_lambda_ij_hard_way(lambda_ij, messages, p0, g, lambda_ti, e, t)
 
 Computes the lambda_ij for edge 'e' at time 't', when the original implementation is indefinite
-for a directed network
+for a directed network.
 """
 function get_lambda_ij_hard_way(lambda_ij::Dict{Array{Int64, 1}, Array{Float64, 1}},
                                 messages::Dict{Array{Int64, 1}, Array{Float64, 1}},
@@ -180,7 +179,7 @@ end
 """
     get_gradient_hard_way(edge, p0, messages, lambda, lambda_ij, g, T)
 
-Computes gradient for a single edge (for a given cascade class)
+Computes gradient for a single edge (for a given cascade class).
 """
 function get_gradient_hard_way(edge::Array{Int64,1}, p0::Array{Float64, 1},
         messages::Dict{Array{Int64,1}, Array{Float64,1}}, lambda::Array{Float64, 2},
@@ -224,7 +223,7 @@ end
     get_gradient_hard_way(edge, p0, messages, lambda, lambda_ij, g, T)
 
 Computes gradient for a single edge (for a given cascade class) in case
-of directed network
+of a directed network.
 """
 function get_gradient_hard_way(edge::Array{Int64,1}, p0::Array{Float64, 1},
         messages::Dict{Array{Int64,1}, Array{Float64,1}}, lambda::Array{Float64, 2},
@@ -253,7 +252,7 @@ end
 """
     get_lagrange_gradient(cascades_classes, g, T)
 
-Computes gradient for alphas according to lagrange derivative summed over classes of cascades
+Computes gradient for alphas according to lagrange derivative summed over classes of cascades.
 """
 function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
                                g::Graph, T::Int64)
@@ -293,7 +292,7 @@ end
 """
     get_lagrange_gradient(cascades_classes, g, T)
 
-Computes gradient for alphas according to lagrange derivative summed over classes of cascades
+Computes gradient for alphas according to lagrange derivative summed over classes of cascades.
 """
 function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
                                g::DirGraph, T::Int64)
@@ -329,6 +328,76 @@ function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int6
 end
 
 """
+    get_lagrange_gradient(cascades_class, p0, g, T)
+
+Computes gradient for alphas according to lagrange derivative when there is only one cascades
+class (corresponding to stochastic initial condition p0).
+"""
+function get_lagrange_gradient(cascades_class::Dict{Int64, Dict{Int64, Int64}}, p0::Array{Float64, 1},
+                               g::Graph, T::Int64)
+    D_ij = Dict{Array{Int64, 1}, Float64}()
+    marginals, messages = dmp_ic(g, p0, T)
+    lambda = lambda_from_marginals(marginals, cascades_class)
+    lambda_ij = get_lambda_ij(lambda, g, messages, p0)
+
+    objective = get_ic_objective(marginals, cascades_class)
+    for (edge, v) in g.edgelist
+        if !haskey(D_ij, edge)
+            if v == 0.0
+                D_ij[edge] = get_gradient_hard_way(edge, p0, messages,
+                                                   lambda, lambda_ij, g, T)
+            else
+                D_ij[edge] = sum(lambda_ij[edge] .* messages[edge] +
+                                 lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+            end
+        else
+            if v == 0.0
+                D_ij[edge] += get_gradient_hard_way(edge, p0, messages,
+                                                    lambda, lambda_ij, g, T)
+            else
+                D_ij[edge] += sum(lambda_ij[edge] .* messages[edge] +
+                                  lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+            end
+        end
+    end
+    return D_ij, objective
+end
+
+"""
+    get_lagrange_gradient(cascades_class, p0, g, T)
+
+Computes gradient for alphas according to lagrange derivative when there is only one cascades
+class (corresponding to stochastic initial condition p0).
+"""
+function get_lagrange_gradient(cascades_class::Dict{Int64, Dict{Int64, Int64}}, p0::Array{Float64, 1},
+                               g::DirGraph, T::Int64)
+    D_ij = Dict{Array{Int64, 1}, Float64}()
+    marginals, messages = dmp_ic(g, p0, T)
+    lambda = lambda_from_marginals(marginals, cascades_class)
+    lambda_ij = get_lambda_ij(lambda, g, marginals, messages, p0)
+
+    objective = get_ic_objective(marginals, cascades_class)
+    for (edge, v) in g.edgelist
+        if !haskey(D_ij, edge)
+            if v == 0.0
+                D_ij[edge] = get_gradient_hard_way(edge, p0, messages,
+                                                   lambda, lambda_ij, g, T)
+            else
+                D_ij[edge] = sum(lambda_ij[edge] .* messages[edge]) / v
+            end
+        else
+            if v == 0.0
+                D_ij[edge] += get_gradient_hard_way(edge, p0, messages,
+                                                    lambda, lambda_ij, g, T)
+            else
+                D_ij[edge] += sum(lambda_ij[edge] .* messages[edge]) / v
+            end
+        end
+    end
+    return D_ij, objective
+end
+
+"""
     get_full_objective(cascades_classes, g, T)
 
 Calculates the objective of a given graph, with respect to a set of cascades.
@@ -342,5 +411,18 @@ function get_full_objective(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, 
         marginals, messages = dmp_ic(g, p0, T)
         objective += get_ic_objective(marginals, cascades_classes[seeds])
     end
+    return objective
+end
+
+"""
+    get_full_objective(cascades_class, p0, g, T)
+
+Calculates the objective of a given graph, with respect to a set of cascades, assuming
+that all the cascades have common stochastic initial condition p0.
+"""
+function get_full_objective(cascades_class::Dict{Int64, Dict{Int64, Int64}}, p0::Array{Float64, 1},
+                            g::Union{Graph, DirGraph}, T::Int64)
+    marginals, messages = dmp_ic(g, p0, T)
+    objective = get_ic_objective(marginals, cascades_class)
     return objective
 end

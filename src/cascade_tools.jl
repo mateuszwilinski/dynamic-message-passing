@@ -134,6 +134,21 @@ function preprocess_cascades(cascades::Array{Int64, 2})
 end
 
 """
+    preprocess_single_class(cascades)
+
+Generates cascades in a class format, but with only one class. It is supposed to be used
+when there is a known, stochastic initial condition for all the cascades
+"""
+function preprocess_single_class(cascades::Array{Int64, 2})
+    cascades_class = Dict{Int64, Dict{Int64, Int64}}()
+    for i in 1:size(cascades)[2]
+        tau = cascades[:, i]
+        add_activations_to_seed!(cascades_class, tau)
+    end
+    return cascades_class
+end
+
+"""
     remove_unobserved!(cascades_classes, unobserved)
 
 Removes unobserved nodes from the dictionary of activated nodes
