@@ -5,13 +5,12 @@ include("../src/structures.jl")
 include("../src/cascade_tools.jl")
 include("../src/network_tools.jl")
 include("../src/lagrange_dmp_method.jl")
-include("../src/gradient_dmp_method.jl")
 
 
 function main()
     # Specify a Random Seed
 
-    seed = 7
+    seed = 17
 
     Random.seed!(seed)
 
@@ -23,20 +22,18 @@ function main()
     edge_weights = rand(size(edges)[1])
 
     edgelist = edgelist_from_array(edges, edge_weights)
-    out_neighbors, in_neighbors = dir_neighbors_from_edges(edgelist, n)
+    neighbors = neighbors_from_edges(edgelist, n)
 
-    g = DirGraph(n, m, edgelist, out_neighbors, in_neighbors)
+    g = Graph(n, m, edgelist, neighbors)
 
     # Generate Cascades
 
     M = 1000
     T = 4
 
-    observed = collect(1:n)
-
     cascades = zeros(Int64, n, M)
     for i in 1:M
-        s = rand(observed)
+        s = rand(1:n)
         p0 = zeros(Float64, n)
         p0[s] = 1.0
 
@@ -51,21 +48,21 @@ function main()
     max_iter = 1000
     iter_threshold = 400
 
-    g_temp = DirGraph(n, m, edgelist_from_array(edges, repeat([0.5], size(edges)[1])),
-                   out_neighbors, in_neighbors)
+    g_temp = Graph(n, m, edgelist_from_array(edges, repeat([0.5], size(edges)[1])),
+                   neighbors)
 
     ratio = 1.0
     multiplier = n / M / T / 80.0
     iter = 0
     while (abs(ratio) > threshold) & (iter < max_iter)
-        D, objective_old = get_dmp_gradient(cascades_classes, g_temp, T, observed)
+        D, objective_old = get_lagrange_gradient(cascades_classes, g_temp, T)
 
         for (e, v) in g_temp.edgelist
             step = D[e] * multiplier
-            while ((v + step) <= 0.0) | ((v + step) >= 1.0)
+            while ((v - step) <= 0.0) | ((v - step) >= 1.0)
                 step /= 2.0
             end
-            g_temp.edgelist[e] = v + step  # Note an oposit sign of step in comparison to SLICER
+            g_temp.edgelist[e] = v - step
         end
         objective_new = get_full_objective(cascades_classes, g_temp, T)
         ratio = (objective_new - objective_old) / abs(objective_old)
