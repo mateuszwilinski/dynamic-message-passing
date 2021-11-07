@@ -80,7 +80,8 @@ function main()
 
     average_error_on_alphas = sum(abs.(values(merge(-, g.edgelist, g_temp.edgelist)))) / m
 
-    println("For M = ", M, ", the average error on alphas is equal to ", average_error_on_alphas)
+    println("For M = ", M, ", the average error on alphas is equal to ",
+            average_error_on_alphas)
 end
 
 main()

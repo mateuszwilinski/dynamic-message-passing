@@ -1,97 +1,95 @@
-using DelimitedFiles
-using StatsBase
 
-include("src/structures.jl")
-include("src/network_tools.jl")
-include("src/cascade_tools.jl")
-include("src/dynamic_message_passing.jl")
-include("src/lagrange_dmp_method.jl")
+import Random
+
+include("../src/structures.jl")
+include("../src/cascade_tools.jl")
+include("../src/network_tools.jl")
+include("../src/dynamic_message_passing.jl")
+include("../src/lagrange_dmp_method.jl")
 
 function main()
-    # Parameters
-    network_type = try ARGS[1] catch e "rr" end
-    n = try parse(Int64, ARGS[2]) catch e 100 end  # number of nodes
-    k = try parse(Int64, ARGS[3]) catch e 3 end  # degree for rr (er) or 'm' for bb
-    T = try parse(Int64, ARGS[4]) catch e 20 end  # cascade time
-    M = try parse(Int64, ARGS[5]) catch e 20 end  # number of cascades
-    d = try parse(Int64, ARGS[6]) catch e 1 end  # number of unobserved nodes
-    s_end = try parse(Int64, ARGS[7]) catch e 1 end  # cascade source
-    f_end = try parse(Int64, ARGS[8]) catch e 10 end  # number of files
+    # Specify a Random Seed
 
-    threshold = 0.0001
-    max_iter = 200
-    iter_threshold = 100
+    seed = 17
 
-#     unobserved = [1:d;]
-    unobserved = [(n-d+1):n;]
-    observed = filter(!in(unobserved), 1:n)
+    Random.seed!(seed)
 
-    for f in 1:f_end
-        # Generating IC model
-        edges = readdlm(string("data/networks/", network_type, "_", k, "_", n, "_", f, ".csv"), ' ', Int64) .+ 1
-        edge_weights = vec(readdlm(string("data/networks/", network_type, "_", k, "_", n, "_", f, "_weights.csv"), ' ', Float64))
-        edgelist = edgelist_from_array(edges, edge_weights)
-        m = length(edgelist)
-        neighbors = neighbors_from_edges(edgelist, n)
-        g = Graph(n, m, edgelist, neighbors)
+    # Create a Network
 
-        # Generating cascades
-        cascades = Array{Array{UInt8,2},1}()
+    edges = Int64[[1 2]; [1 3]; [1 4]; [1 5]; [1 6]; [1 7]; [2 8]; [5 9]; [5 10]]
+    m = size(edges)[1]
+    n = maximum(edges)
+    edge_weights = rand(size(edges)[1])
 
-        for _ in 1:M
-            s_ = rand(observed)
-            p0 = zeros(Float64, n)
-            p0[s_] = 1.0
-            append!(cascades, [cascade(g, p0, T)])
-        end
+    edgelist = edgelist_from_array(edges, edge_weights)
+    neighbors = neighbors_from_edges(edgelist, n)
 
-        # Inference
-        g_temp = Graph(n, m, edgelist_from_array(edges, repeat([0.5], size(edges)[1])), neighbors)
+    g = Graph(n, m, edgelist, neighbors)
 
-        difference = 1.0
-        multiplier = n / M / T / 80.0
-        iter = 0
-        cascades_classes = preprocess_cascades(cascades)
-        while (difference > threshold) & (iter < max_iter)
-            D, objective = get_gradient(cascades_classes, g_temp, T)
+    # Generate Cascades
 
-            iter += 1
-            difference = 0.0
-            for (e, v) in g_temp.edgelist
-                step = D[e] * multiplier
-                new_v = min(1.0, max(0.0, v - step))
-                g_temp.edgelist[e] = new_v
-                difference += abs(step)
+    M = 1000
+    T = 4
+    source = 1
+
+    p0 = zeros(Float64, n)
+    p0[source] = 1.0
+
+    cascades = zeros(Int64, n, M)
+    for i in 1:M
+        temp_cascades = cascade_ic(g, p0, T)
+        cascades[1:n, i] = times_from_cascade(temp_cascades)
+    end
+    cascades_classes = preprocess_cascades(cascades)
+
+    # DMP-Rec Inference
+
+    threshold = 1e-6
+    max_iter = 1000
+    iter_threshold = 400
+
+    g_temp = Graph(n, m, edgelist_from_array(edges, repeat([0.5], size(edges)[1])),
+                   neighbors)
+
+    ratio = 1.0
+    multiplier = n / M / T / 80.0
+    iter = 0
+    while (abs(ratio) > threshold) & (iter < max_iter)
+        D, objective_old = get_lagrange_gradient(cascades_classes, g_temp, T)
+
+        for (e, v) in g_temp.edgelist
+            step = D[e] * multiplier
+            while ((v - step) <= 0.0) | ((v - step) >= 1.0)
+                step /= 2.0
             end
-            difference /= sum(abs.(values(g_temp.edgelist)))
-            if iter > iter_threshold
-                multiplier *= sqrt(iter - iter_threshold) / sqrt(iter + 1 - iter_threshold)
-            end
+            g_temp.edgelist[e] = v - step
         end
+        objective_new = get_full_objective(cascades_classes, g_temp, T)
+        ratio = (objective_new - objective_old) / abs(objective_old)
 
-        # Printing results
-        for s in 1:s_end
-            p0 = zeros(Float64, n)
-            p0[s] = 1.0
-
-            alpha_marginals, _ = dynamic_messsage_passing(g, p0, T)
-            estimated_marginals, _ = dynamic_messsage_passing(g_temp, p0, T)
-            real_marginals = readdlm(string("data/networks/", network_type, "_", k, "_", n, "_", T, "_", f, "_", s, "_marginals.csv"), ';', Float64)
-
-            diff_alpha = sum(abs.(values(merge(-, g.edgelist, g_temp.edgelist)))) / m
-            _, obj = get_gradient(cascades_classes, g, T)
-            _, obj_temp = get_gradient(cascades_classes, g_temp, T)
-
-            diff_alpha_margins = sum(abs.(alpha_marginals - real_marginals)) / sum(real_marginals)
-            diff_margins = sum(abs.(estimated_marginals - real_marginals)) / sum(real_marginals)
-    #         diff_alpha_margins = sum(abs.(alpha_marginals - real_marginals)) / (n * T)
-    #         diff_margins = sum(abs.(estimated_marginals - real_marginals)) / (n * T)
-
-            println("compare_marginals_relative;", network_type, ";", k, ";", n, ";", M, ";", T, ";",
-            d, ";", s, ";", f, ";", iter, ";", diff_alpha, ";", diff_alpha_margins, ";",
-            diff_margins, ";", obj, ";", obj_temp)
+        iter += 1
+        if iter > iter_threshold
+            multiplier *= sqrt(iter - iter_threshold) / sqrt(iter + 1 - iter_threshold)
         end
     end
+
+    # Comparing marginals
+
+    sim_n = 100000
+
+    estimated_marginals, _ = dmp_ic(g_temp, p0, T)
+
+    real_marginals = zeros(Int64, T, n)
+    for i in 1:sim_n
+        real_marginals .+= (cascade_ic(g, p0, T) .> 0)
+    end
+    real_marginals = real_marginals ./ sim_n
+
+    relative_error_on_marginals = (sum(abs.(estimated_marginals - real_marginals)) /
+                                   sum(real_marginals))
+
+    println("For M = ", M, ", the relative error on marginals is equal to ",
+            relative_error_on_marginals)
 end
 
 main()
