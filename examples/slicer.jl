@@ -10,7 +10,7 @@ include("../src/lagrange_dmp_method.jl")
 function main()
     # Specify a Random Seed
 
-    seed = 17
+    seed = 7
 
     Random.seed!(seed)
 
@@ -42,7 +42,7 @@ function main()
     end
     cascades_classes = preprocess_cascades(cascades)
 
-    # DMP-Rec Inference
+    # SLICER Inference
 
     threshold = 1e-6
     max_iter = 1000
