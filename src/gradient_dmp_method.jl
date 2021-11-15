@@ -113,8 +113,8 @@ function get_dmp_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Di
 
     for seeds in keys(cascades_classes)
         p0 = zeros(Float64, g.n)
-        p0[seeds] = 1.0
-        marginals, messages = dynamic_messsage_passing(g, p0, T)
+        p0[seeds] .= 1.0
+        marginals, messages = dmp_ic(g, p0, T)
         phi = messages_derivatives(g, messages, p0, T)
 
         objective += get_ic_objective(marginals, cascades_classes[seeds])

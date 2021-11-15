@@ -4,13 +4,13 @@ import Random
 include("../src/structures.jl")
 include("../src/cascade_tools.jl")
 include("../src/network_tools.jl")
-include("../src/dynamic_message_passing.jl")
 include("../src/lagrange_dmp_method.jl")
+
 
 function main()
     # Specify a Random Seed
 
-    seed = 17
+    seed = 7
 
     Random.seed!(seed)
 
@@ -30,19 +30,19 @@ function main()
 
     M = 1000
     T = 4
-    source = 1
-
-    p0 = zeros(Float64, n)
-    p0[source] = 1.0
 
     cascades = zeros(Int64, n, M)
     for i in 1:M
+        s = rand(1:n)
+        p0 = zeros(Float64, n)
+        p0[s] = 1.0
+
         temp_cascades = cascade_ic(g, p0, T)
         cascades[1:n, i] = times_from_cascade(temp_cascades)
     end
     cascades_classes = preprocess_cascades(cascades)
 
-    # DMP-Rec Inference
+    # SLICER Inference
 
     threshold = 1e-6
     max_iter = 1000
@@ -73,23 +73,12 @@ function main()
         end
     end
 
-    # Comparing marginals
+    # Comparison with true values
 
-    sim_n = 100000
+    average_error_on_alphas = sum(abs.(values(merge(-, g.edgelist, g_temp.edgelist)))) / m
 
-    estimated_marginals, _ = dmp_ic(g_temp, p0, T)
-
-    real_marginals = zeros(Int64, T, n)
-    for i in 1:sim_n
-        real_marginals .+= (cascade_ic(g, p0, T) .> 0)
-    end
-    real_marginals = real_marginals ./ sim_n
-
-    relative_error_on_marginals = (sum(abs.(estimated_marginals - real_marginals)) /
-                                   sum(real_marginals))
-
-    println("For M = ", M, ", the relative error on marginals is equal to ",
-            relative_error_on_marginals)
+    println("For M = ", M, ", the average error on alphas is equal to ",
+            average_error_on_alphas)
 end
 
 main()

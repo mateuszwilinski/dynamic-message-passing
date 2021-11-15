@@ -21,7 +21,7 @@ function lambda_from_mixed_marginals(mixture_marginals::Dict{Int64, Array{Float6
             if t == 1  # I assume that T > 1 (!!!)
                 lambda[t, i] -= seed[i][t] / marginals[t, i]
             elseif t == T
-                if marginals[t-1, i] < 1.0
+                if marginals[t-1, i] < L
                     lambda[t-1, i] -= seed[i][t] / (marginals[t-1, i] - L)
                 end
             elseif t > 1
