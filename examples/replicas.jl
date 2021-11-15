@@ -17,6 +17,7 @@ function main()
 
     # Create a Network
 
+    # In order to see the effect of this approach, we need a loopy graph
     edges = Int64[[1 2]; [2 3]; [3 4]; [1 4]; [1 5]; [2 6]; [3 7]; [4 8];
                   [5 6]; [6 7]; [7 8]; [5 8]; [5 9]; [6 10]; [7 11]; [8 12];
                   [9 10]; [10 11]; [11 12]; [9 12]; [1 9]; [2 10]; [3 11]; [4 12]]
@@ -32,7 +33,7 @@ function main()
     # Generate Cascades
 
     M = 10000
-    T = 20
+    T = 20  # long time is needed for the loops to have significant effect
 
     cascades = zeros(Int64, n, M)
     for i in 1:M
