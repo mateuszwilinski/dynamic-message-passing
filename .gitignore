@@ -1,6 +1,7 @@
 /data/
 /results/
 /notebooks/
+/experiments/
 /old/
 /.idea/
 /.ipynb_checkpoints/
