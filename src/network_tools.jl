@@ -15,11 +15,11 @@ end
 """
     neighbors_from_edges(edges, n)
 
-Compute neighbors for each of n nodes, based on the list of edges
+Compute neighbors for each of n nodes, based on the edgelist dictionary
 """
-function neighbors_from_edges(edges::Dict{Array{Int64, 1}, Real}, n::Int64)
+function neighbors_from_edges(edgelist::Dict{Array{Int64, 1}, Real}, n::Int64)
     neighbors = [Int64[] for i in 1:n]
-    for edge in edges
+    for edge in edgelist
         push!(neighbors[edge[1][1]], edge[1][2])
         push!(neighbors[edge[1][2]], edge[1][1])
     end
@@ -40,6 +40,20 @@ function dir_neighbors_from_edges(edges::Dict{Array{Int64, 1}, Real}, n::Int64)
         push!(in_neighbors[edge[1][2]], edge[1][1])
     end
     return out_neighbors, in_neighbors
+end
+
+"""
+    neighbors_from_edges(edges, n)
+
+Compute neighbors for each of n nodes, based on the list of edges
+"""
+function neighbors_from_edges(edges::Array{Int64, 2}, n::Int64)
+    neighbors = [Int64[] for i in 1:n]
+    for edge in eachrow(edges)
+        push!(neighbors[edge[1]], edge[2])
+        push!(neighbors[edge[2]], edge[1])
+    end
+    return neighbors
 end
 
 """
