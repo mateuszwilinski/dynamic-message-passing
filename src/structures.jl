@@ -13,3 +13,11 @@ struct DirGraph
     out_neighbors::Array{Array{Int64, 1}, 1}
     in_neighbors::Array{Array{Int64, 1}, 1}
 end
+
+struct SimpleGraph
+    n::Int64
+    m::Int64
+    alpha::Ref{Real}
+    edgelist::Array{Int64, 2}
+    neighbors::Array{Array{Int64, 1}, 1}
+end
