@@ -21,3 +21,9 @@ struct SimpleGraph
     edgelist::Array{Int64, 2}
     neighbors::Array{Array{Int64, 1}, 1}
 end
+
+struct TimeNoise
+    m_1::Int64
+    m_2::Int64
+    p::Dict{Int64, Float64}
+end
