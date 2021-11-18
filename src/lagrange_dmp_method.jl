@@ -30,6 +30,41 @@ function lambda_from_marginals(marginals::Array{Float64, 2}, seed::Dict{Int64, D
 end
 
 """
+    lambda_from_marginals(marginals, seed, noise)
+
+Computes marginals lagrange coefficients for a given initial condition (seed).
+"""
+function lambda_from_marginals(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int64, Int64}},
+                               noise::TimeNoise)
+    T::Int64 = size(marginals)[1]
+    n::Int64 = size(marginals)[2]
+    lambda = zeros(Float64, T, n)
+    for i in keys(seed)
+        for t in keys(seed[i])
+            temp_sum = 0.0
+            for k in noise.m_1:noise.m_2
+                if t - k == 1
+                    temp_sum += noise.p[k] * marginals[t-k, i]
+                elseif t - k == T
+                    temp_sum += noise.p[k] * (1.0 - marginals[t-1-k, i])
+                elseif 1 < t - k < T
+                    temp_sum += noise.p[k] * (marginals[t-k, i] - marginals[t-1-k, i])
+                end
+            end  # TODO: What if temp_sum == 0.0 ??
+            for k in noise.m_1:noise.m_2
+                if 1 <= t - k < T
+                    lambda[t-k, i] -= noise.p[k] * seed[i][t] / temp_sum
+                end
+                if 1 < t - k <= T
+                    lambda[t-1-k, i] += noise.p[k] * seed[i][t] / temp_sum
+                end
+            end
+        end
+    end
+    return lambda
+end
+
+"""
     get_lambda_ij(lambda, g, messages, p0)
 
 Calculates messages lagrange coefficients.
@@ -422,6 +457,47 @@ function get_lagrange_gradient(cascades_class::Dict{Int64, Dict{Int64, Int64}}, 
 end
 
 """
+    get_lagrange_gradient(cascades_classes, g, T, noise)
+
+Computes gradient for alphas according to lagrange derivative summed over classes of cascades,
+in the case of noisy times.
+"""
+function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
+                               g::Graph, T::Int64, noise::TimeNoise)
+    objective = 0.0
+    D_ij = Dict{Array{Int64, 1}, Float64}()
+    for seeds in keys(cascades_classes)
+        p0 = zeros(Float64, g.n)
+        p0[seeds] .= 1.0
+        marginals, messages = dmp_ic(g, p0, T)
+        lambda = lambda_from_marginals(marginals, cascades_classes[seeds], noise)
+        lambda_ij = get_lambda_ij(lambda, g, messages, p0)
+
+        objective += get_ic_objective(marginals, cascades_classes[seeds], noise)
+        for (edge, v) in g.edgelist
+            if !haskey(D_ij, edge)
+                if v == 0.0
+                    D_ij[edge] = get_gradient_hard_way(edge, p0, messages,
+                                                       lambda, lambda_ij, g, T)
+                else
+                    D_ij[edge] = sum(lambda_ij[edge] .* messages[edge] +
+                                     lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+                end
+            else
+                if v == 0.0
+                    D_ij[edge] += get_gradient_hard_way(edge, p0, messages,
+                                                        lambda, lambda_ij, g, T)
+                else
+                    D_ij[edge] += sum(lambda_ij[edge] .* messages[edge] +
+                                      lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / v
+                end
+            end
+        end
+    end
+    return D_ij, objective
+end
+
+"""
     get_gradient_hard_way(edge, p0, messages, lambda, lambda_ij, g, T)
 
 Computes gradient for a single edge (for a given cascade class).
@@ -521,5 +597,23 @@ function get_full_objective(cascades_class::Dict{Int64, Dict{Int64, Int64}}, p0:
                             g::Union{Graph, DirGraph, SimpleGraph}, T::Int64)
     marginals, messages = dmp_ic(g, p0, T)
     objective = get_ic_objective(marginals, cascades_class)
+    return objective
+end
+
+"""
+    get_full_objective(cascades_class, p0, g, T, noise)
+
+Calculates the objective of a given graph, with respect to a set of cascades,
+in the case of noisy times.
+"""
+function get_full_objective(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
+                            g::Union{Graph, DirGraph}, T::Int64, noise::TimeNoise)
+    objective = 0.0
+    for seeds in keys(cascades_classes)
+        p0 = zeros(Float64, g.n)
+        p0[seeds] .= 1.0
+        marginals, messages = dmp_ic(g, p0, T)
+        objective += get_ic_objective(marginals, cascades_classes[seeds], noise)
+    end
     return objective
 end
