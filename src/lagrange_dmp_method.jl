@@ -473,7 +473,7 @@ function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int6
         lambda = lambda_from_marginals(marginals, cascades_classes[seeds], noise)
         lambda_ij = get_lambda_ij(lambda, g, messages, p0)
 
-        objective += get_ic_objective(marginals, cascades_classes[seeds])
+        objective += get_ic_objective(marginals, cascades_classes[seeds], noise)
         for (edge, v) in g.edgelist
             if !haskey(D_ij, edge)
                 if v == 0.0
@@ -597,5 +597,23 @@ function get_full_objective(cascades_class::Dict{Int64, Dict{Int64, Int64}}, p0:
                             g::Union{Graph, DirGraph, SimpleGraph}, T::Int64)
     marginals, messages = dmp_ic(g, p0, T)
     objective = get_ic_objective(marginals, cascades_class)
+    return objective
+end
+
+"""
+    get_full_objective(cascades_class, p0, g, T, noise)
+
+Calculates the objective of a given graph, with respect to a set of cascades,
+in the case of noisy times.
+"""
+function get_full_objective(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
+                            g::Union{Graph, DirGraph}, T::Int64, noise::TimeNoise)
+    objective = 0.0
+    for seeds in keys(cascades_classes)
+        p0 = zeros(Float64, g.n)
+        p0[seeds] .= 1.0
+        marginals, messages = dmp_ic(g, p0, T)
+        objective += get_ic_objective(marginals, cascades_classes[seeds], noise)
+    end
     return objective
 end

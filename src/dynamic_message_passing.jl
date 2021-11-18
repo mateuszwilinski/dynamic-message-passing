@@ -4,7 +4,7 @@ include("structures.jl")
 """
     dmp_ic(g, p0, T)
 
-Computes the marginals and messages for cascade of length T on a graph g with initial condition p0
+Computes the marginals and messages for cascade of length T on a graph g with initial condition p0.
 """
 function dmp_ic(g::Graph, p0::Array{Float64, 1}, T::Int64)
     # initialising marginals and messages
@@ -48,7 +48,7 @@ end
     dmp_ic(g, p0, T)
 
 Computes the marginals and messages for cascade of length T on a directed graph g
-with initial condition p0
+with initial condition p0.
 """
 function dmp_ic(g::DirGraph, p0::Array{Float64, 1}, T::Int64)
     # initialising marginals and messages
@@ -95,7 +95,7 @@ end
     dmp_ic(g, p0, T)
 
 Computes the marginals and messages for cascade of length T on a simple graph g
-with initial condition p0
+with initial condition p0.
 """
 function dmp_ic(g::SimpleGraph, p0::Array{Float64, 1}, T::Int64)
     # initialising marginals and messages
@@ -137,7 +137,7 @@ end
 """
     get_ic_message_hard_way(messages, g, p0, e, t)
 
-Computes the message for edge 'e' at time 't', when the original implementation is indefinite
+Computes the message for edge 'e' at time 't', when the original implementation is indefinite.
 """
 function get_ic_message_hard_way(messages::Dict{Array{Int64, 1}, Array{Float64, 1}}, g::Graph,
                                  p0::Array{Float64, 1}, e::Array{Int64, 1}, t::Int64)
@@ -154,7 +154,7 @@ end
     get_ic_message_hard_way(messages, g, p0, e, t)
 
 Computes the message for edge 'e' at time 't', when the original implementation is indefinite
-in the case of directed graphs
+in the case of directed graphs.
 """
 function get_ic_message_hard_way(messages::Dict{Array{Int64, 1}, Array{Float64, 1}},
                                  g::DirGraph, p0::Array{Float64, 1}, e::Array{Int64, 1},
@@ -172,7 +172,7 @@ end
     get_ic_message_hard_way(messages, g, p0, e, t)
 
 Computes the message for edge 'e' at time 't', when the original implementation is indefinite
-in the case of simple graphs
+in the case of simple graphs.
 """
 function get_ic_message_hard_way(messages::Dict{Array{Int64, 1}, Array{Float64, 1}}, g::SimpleGraph,
                                  p0::Array{Float64, 1}, e::Array{Int64, 1}, t::Int64)
@@ -188,7 +188,8 @@ end
 """
     dmp_si(g, p0, T)
 
-Computes the marginals and messages for cascade of length T on a graph g with initial condition p0
+Computes the marginals and messages for cascade of length T on a graph g with
+initial condition p0.
 """
 function dmp_si(g::Graph, p0::Array{Float64, 1}, T::Int64)
     # initialising marginals and messages
@@ -235,7 +236,8 @@ end
 """
     get_ic_objective(marginals, seed)
 
-Caclulates the objective function of given activation times paired with an initial condition (seed)
+Caclulates the objective function of given activation times paired with
+an initial condition (seed).
 """
 function get_ic_objective(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int64, Int64}})
     T::Int64 = size(marginals)[1]
@@ -249,6 +251,33 @@ function get_ic_objective(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{I
             elseif t > 1
                 objective += log(marginals[t, i] - marginals[t-1, i]) * seed[i][t]
             end
+        end
+    end
+    return objective
+end
+
+"""
+    get_ic_objective(marginals, seed, noise)
+
+Caclulates the objective function of given activation times paired with
+an initial condition (seed) in the case of noisy times.
+"""
+function get_ic_objective(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int64, Int64}}, noise::TimeNoise)
+    T::Int64 = size(marginals)[1]
+    objective::Float64 = 0.0
+    for i in keys(seed)
+        for t in keys(seed[i])
+            temp_sum = 0.0
+            for k in noise.m_1:noise.m_2
+                if t - k == 1
+                    temp_sum += noise.p[k] * marginals[t-k, i]
+                elseif t - k == T
+                    temp_sum += noise.p[k] * (1.0 - marginals[t-1-k, i])
+                elseif 1 < t - k < T
+                    temp_sum += noise.p[k] * (marginals[t-k, i] - marginals[t-1-k, i])
+                end
+            end
+            objective += log(temp_sum) * seed[i][t]  # TODO: What if temp_sum == 0.0 ??
         end
     end
     return objective
