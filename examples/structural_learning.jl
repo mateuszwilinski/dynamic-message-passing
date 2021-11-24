@@ -48,11 +48,12 @@ function main()
             seed = sample(observed, s, replace=false)
             p0 = zeros(Float64, n)
             p0[seed] .= 1.0
+            
             temp_cascades = times_from_cascade(cascade_ic(g, p0, T))
-            temp_cascades[unobserved] .= 0
             cascades_times[1:n, i] = temp_cascades
         end
         cascades = preprocess_cascades(cascades_times)
+        remove_unobserved!(cascades_classes, unobserved)
 
         # Inference
         ext_edge_weights = repeat([0.5], size(edges)[1])

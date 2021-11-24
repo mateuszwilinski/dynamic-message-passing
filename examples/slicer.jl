@@ -1,5 +1,6 @@
 
 import Random
+using StatsBase
 
 include("../src/structures.jl")
 include("../src/cascade_tools.jl")
@@ -26,6 +27,13 @@ function main()
 
     g = Graph(n, m, edgelist, neighbors)
 
+    # Unobserved Nodes
+
+    d = 0
+
+    unobserved = sample(1:n, d, replace=false)
+    observed = filter(!in(unobserved), 1:n)
+
     # Generate Cascades
 
     M = 1000
@@ -41,6 +49,7 @@ function main()
         cascades[1:n, i] = times_from_cascade(temp_cascades)
     end
     cascades_classes = preprocess_cascades(cascades)
+    remove_unobserved!(cascades_classes, unobserved)
 
     # SLICER Inference
 

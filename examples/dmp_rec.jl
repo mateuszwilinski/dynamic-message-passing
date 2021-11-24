@@ -33,6 +33,7 @@ function main()
     T = 4
 
     observed = collect(1:n)
+    unobserved = Array{Int64, 1}()
 
     cascades = zeros(Int64, n, M)
     for i in 1:M
@@ -44,6 +45,7 @@ function main()
         cascades[1:n, i] = times_from_cascade(temp_cascades)
     end
     cascades_classes = preprocess_cascades(cascades)
+    remove_unobserved!(cascades_classes, unobserved)
 
     # DMP-Rec Inference
 
