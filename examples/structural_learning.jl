@@ -48,9 +48,9 @@ function main()
             seed = sample(observed, s, replace=false)
             p0 = zeros(Float64, n)
             p0[seed] .= 1.0
-            temp_cascades = cascade_ic(g, p0, T)
-            temp_cascades[1:end, unobserved] .= 0
-            cascades_times[1:n, i] = times_from_cascade(temp_cascades)
+            temp_cascades = times_from_cascade(cascade_ic(g, p0, T))
+            temp_cascades[unobserved] .= 0
+            cascades_times[1:n, i] = temp_cascades
         end
         cascades = preprocess_cascades(cascades_times)
 
