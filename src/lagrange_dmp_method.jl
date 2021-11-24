@@ -18,7 +18,7 @@ function lambda_from_marginals(marginals::Array{Float64, 2}, seed::Dict{Int64, D
                 if marginals[t-1, i] < 1.0
                     lambda[t-1, i] += seed[i][t] / (1.0 - marginals[t-1, i])
                 end
-            elseif t > 1
+            elseif 1 < t < T
                 if marginals[t, i] - marginals[t-1, i] > 1e-9
                     lambda[t, i] -= seed[i][t] / (marginals[t, i] - marginals[t-1, i])
                     lambda[t-1, i] += seed[i][t] / (marginals[t, i] - marginals[t-1, i])

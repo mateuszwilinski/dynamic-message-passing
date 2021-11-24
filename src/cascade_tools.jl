@@ -127,14 +127,16 @@ Generates a list of activation times for a given cascade initial condition (seed
 function add_activations_to_seed!(seed::Dict{Int64, Dict{Int64, Int64}}, tau::Array{Int64, 1})
     for i in 1:length(tau)
         t = tau[i]
-        if !haskey(seed, i)
-            seed[i] = Dict{Int64, Int64}()
-            seed[i][t] = 1
-        else
-            if !haskey(seed[i], t)
+        if 0 < t  # getting rid of unobserved nodes
+            if !haskey(seed, i)
+                seed[i] = Dict{Int64, Int64}()
                 seed[i][t] = 1
             else
-                seed[i][t] += 1
+                if !haskey(seed[i], t)
+                    seed[i][t] = 1
+                else
+                    seed[i][t] += 1
+                end
             end
         end
     end
