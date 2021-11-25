@@ -1,108 +1,107 @@
 
-using DelimitedFiles
-using StatsBase
 using Random
+using StatsBase
 
 include("../src/structures.jl")
 include("../src/cascade_tools.jl")
 include("../src/network_tools.jl")
-include("../src/dynamic_message_passing.jl")
 include("../src/lagrange_dmp_method.jl")
 
 function main()
-    # Parameters
-    network_type = try ARGS[1] catch e "rr" end
-    n = try parse(Int64, ARGS[2]) catch e 100 end  # number of nodes
-    k = try parse(Int64, ARGS[3]) catch e 3 end  # degree for rr (er) or 'm' for bb
-    T = try parse(Int64, ARGS[4]) catch e 20 end  # cascade time
-    M = try parse(Int64, ARGS[5]) catch e 20 end  # number of cascades
-    l = try parse(Int64, ARGS[6]) catch e 16 end  # number of extra edges
-    d = try parse(Int64, ARGS[7]) catch e 1 end  # number of unobserved nodes
-    f_end = try parse(Int64, ARGS[8]) catch e 10 end  # number of files
-    s = try parse(Int64, ARGS[9]) catch e 1 end  # number of seeds
+    # Specify a Random Seed
 
-    threshold = 1e-8
-    min_val = 0.001
-    max_iter = 400
-    iter_threshold = 200
-    m = Int64(n * k / 2.0)
+    seed = 7
 
-    Random.seed!(100)
+    Random.seed!(seed)
+
+    # Create a Network
+
+    edges = Int64[[1 2]; [1 3]; [1 4]; [1 5]; [1 6]; [1 7]; [2 8]; [5 9]; [5 10]]
+    m = size(edges)[1]
+    n = maximum(edges)
+    edge_weights = rand(size(edges)[1])
+
+    edgelist = edgelist_from_array(edges, edge_weights)
+    neighbors = neighbors_from_edges(edgelist, n)
+
+    g = Graph(n, m, edgelist, neighbors)
+
+    # Unobserved Nodes
+
+    d = 0
 
     unobserved = sample(1:n, d, replace=false)
     observed = filter(!in(unobserved), 1:n)
 
-    for f in 1:f_end
-        # Generating IC model
-        edges = readdlm(string("data/networks/", network_type, "_ext_", k, "_", n, "_", f, ".csv"), ' ', Int64) .+ 1
-        edge_weights = readdlm(string("data/networks/", network_type, "_ext_", k, "_", n, "_", f, "_weights.csv"),
-                               ' ', Float64)[1:end, 1]
-        edgelist = edgelist_from_array(edges[1:m, 1:end], edge_weights[1:m])
-        neighbors = neighbors_from_edges(edgelist, n)
+    # Generate Cascades
 
-        g = Graph(n, m, edgelist_from_array(edges[1:m, 1:end], edge_weights[1:m]), neighbors)
+    M = 1000
+    T = 4
 
-        # Generating cascades
-        cascades_times = zeros(Int64, n, M)
-        for i in 1:M
-            seed = sample(observed, s, replace=false)
-            p0 = zeros(Float64, n)
-            p0[seed] .= 1.0
-            
-            temp_cascades = times_from_cascade(cascade_ic(g, p0, T))
-            cascades_times[1:n, i] = temp_cascades
-        end
-        cascades = preprocess_cascades(cascades_times)
-        remove_unobserved!(cascades_classes, unobserved)
+    cascades = zeros(Int64, n, M)
+    for i in 1:M
+        s = rand(1:n)
+        p0 = zeros(Float64, n)
+        p0[s] = 1.0
 
-        # Inference
-        ext_edge_weights = repeat([0.5], size(edges)[1])
-        ext_edgelist = edgelist_from_array(edges[1:(m+l), 1:end], ext_edge_weights[1:(m+l)])
-        ext_neighbors = neighbors_from_edges(ext_edgelist, n)
-
-        g_temp = Graph(n, m+l, edgelist_from_array(edges[1:(m+l), 1:end],
-                                                   ext_edge_weights[1:(m+l)]), ext_neighbors)
-
-        difference = 1.0
-        multiplier = n / M / T / 200.0
-        iter = 0
-        objective_old = 0.0
-        objective_new = 0.0
-        while (abs(difference) > threshold) & (iter < max_iter)
-            D, objective_old = get_lagrange_gradient(cascades, g_temp, T)
-
-            for (e, v) in g_temp.edgelist
-                step = D[e] * multiplier
-                while ((v - step) <= 0.0) | ((v - step) >= 1.0)
-                    step /= 2.0
-                end
-                g_temp.edgelist[e] = v - step
-            end
-            objective_new = get_full_objective(cascades, g_temp, T)
-            difference = (objective_new - objective_old) / abs(objective_old)
-
-            iter += 1
-            if iter > iter_threshold
-                multiplier *= sqrt(iter - iter_threshold) / sqrt(iter + 1 - iter_threshold)
-            end
-        end
-
-        vals = zeros(m+l)
-        for i in 1:(m+l)
-            e = edges[i, 1:end]
-            vals[i] = g_temp.edgelist[e]
-        end
-
-        min_real = minimum(vals[1:m])
-        max_fake = maximum(vals[(m+1):(m+l)])
-        mean_fake = mean(vals[(m+1):(m+l)])
-        count_real = sum(vals[1:m] .> min_val)
-        count_fake = sum(vals[(m+1):(m+l)] .< min_val)
-
-        println("structure;", network_type, ";", k, ";", n, ";", M, ";", T, ";",
-                l, ";", d, ";", f, ";", s, ";", iter, ";", min_real, ";",
-                max_fake, ";", mean_fake, ";", count_real, ";", count_fake)
+        temp_cascades = cascade_ic(g, p0, T)
+        cascades[1:n, i] = times_from_cascade(temp_cascades)
     end
+    cascades_classes = preprocess_cascades(cascades)
+    remove_unobserved!(cascades_classes, unobserved)
+
+    # SLICER Inference
+
+    threshold = 1e-6
+    max_iter = 1000
+    iter_threshold = 400
+
+    g_temp = Graph(n, n * (n-1) / 2,
+                   full_edgelist(n, repeat([0.5], Int64(n * (n-1) / 2))),
+                   full_neighbors(n))
+
+    ratio = 1.0
+    multiplier = n / M / T / 80.0
+    iter = 0
+    while (abs(ratio) > threshold) & (iter < max_iter)
+        D, objective_old = get_lagrange_gradient(cascades_classes, g_temp, T)
+
+        for (e, v) in g_temp.edgelist
+            step = D[e] * multiplier
+            while ((v - step) <= 0.0) | ((v - step) >= 1.0)
+                step /= 2.0
+            end
+            g_temp.edgelist[e] = v - step
+        end
+        objective_new = get_full_objective(cascades_classes, g_temp, T)
+        ratio = (objective_new - objective_old) / abs(objective_old)
+
+        iter += 1
+        if iter > iter_threshold
+            multiplier *= sqrt(iter - iter_threshold) / sqrt(iter + 1 - iter_threshold)
+        end
+    end
+
+    # Comparison with true structure
+
+    edge_threshold = 1e-7
+    false_positive = 0
+    false_negative = 0
+    for edge in keys(g_temp.edgelist)
+        if edge in keys(g.edgelist)
+            if g_temp.edgelist[edge] < edge_threshold
+                false_negative += 1
+            end
+        else
+            if g_temp.edgelist[edge] >= edge_threshold
+                false_positive += 1
+            end
+        end
+    end
+
+    println("For M = ", M, ", number of false negative is equal to ",
+            false_negative, ", number of false positive is equal to ",
+            false_positive)
 end
 
 main()
