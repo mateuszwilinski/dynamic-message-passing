@@ -13,11 +13,13 @@ https://arxiv.org/abs/2007.06557
 
 If you found the repository useful in your work, we kindly request that you cite:
 ```
-@article{wilinski2020scalable,
-  title={Scalable Learning of Independent Cascade Dynamics from Partial Observations},
-  author={Wilinski, Mateusz and Lokhov, Andrey Y},
-  journal={arXiv preprint arXiv:2007.06557},
-  year={2020}
+@inproceedings{wilinski2021prediction,
+  title={Prediction-Centric Learning of Independent Cascade Dynamics from Partial Observations},
+  author={Wilinski, Mateusz and Lokhov, Andrey},
+  booktitle={International Conference on Machine Learning},
+  pages={11182--11192},
+  year={2021},
+  organization={PMLR}
 }
 ```
 
