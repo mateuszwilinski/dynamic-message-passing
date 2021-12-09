@@ -1,8 +1,8 @@
 /data/
+/bash/
 /results/
 /notebooks/
 /experiments/
-/old/
 /.idea/
 /.ipynb_checkpoints/
 .DS_Store
