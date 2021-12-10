@@ -112,7 +112,7 @@ function times_from_cascade(cascade::Array{UInt8, 2})
     tau = repeat([T], inner=n)
     for i in 1:n
         temp = findfirst(isequal(1), cascade[:, i])
-        if temp != nothing
+        if !isnothing(temp)
             tau[i] = temp
         end
     end

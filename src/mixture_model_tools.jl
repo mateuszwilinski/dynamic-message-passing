@@ -1,5 +1,4 @@
 
-include("dynamic_message_passing.jl")
 include("lagrange_dmp_method.jl")
 
 """
