@@ -90,8 +90,8 @@ Removes an edge from graph g.
 """
 function remove_edge!(g, edge)
     delete!(g.edgelist, edge)
-    deleteat!(g.neighbors[edge[1]], findfirst(x -> x == edge[2], g_temp.neighbors[edge[1]]))
-    deleteat!(g.neighbors[edge[2]], findfirst(x -> x == edge[1], g_temp.neighbors[edge[2]]))
+    deleteat!(g.neighbors[edge[1]], findfirst(x -> x == edge[2], g.neighbors[edge[1]]))
+    deleteat!(g.neighbors[edge[2]], findfirst(x -> x == edge[1], g.neighbors[edge[2]]))
 end
 
 """
