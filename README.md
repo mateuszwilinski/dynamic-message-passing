@@ -11,7 +11,7 @@ Algorithm allows to:
 The code was developed while working on the following article:
 https://arxiv.org/abs/2007.06557
 
-If you found the repository useful in your work, we kindly request that you cite:
+If you found the repository useful in your work, we kindly ask that you cite:
 ```
 @inproceedings{wilinski2021prediction,
   title={Prediction-Centric Learning of Independent Cascade Dynamics from Partial Observations},
