@@ -234,6 +234,112 @@ function dmp_si(g::Graph, p0::Array{Float64, 1}, T::Int64)
 end
 
 """
+    dmp_sir(g, gamma, p0, T)
+
+Computes the marginals and messages for cascade of length T on a graph g with
+initial condition p0 and removal probability gamma.
+"""
+function dmp_sir(g::Graph, gamma::Float64, p0::Array{Float64, 1}, T::Int64)
+    # initialising marginals and messages
+    mrg_s = zeros(Float64, T, g.n)
+    mrg_r = zeros(Float64, T, g.n)
+    msg_phi = Dict{Array{Int64, 1}, Array{Float64, 1}}()
+    msg_theta = Dict{Array{Int64, 1}, Array{Float64, 1}}()
+    for edge in keys(g.edgelist)
+        msg_phi[edge] = zeros(Float64, T)
+        msg_phi[reverse(edge)] = zeros(Float64, T)
+        msg_theta[edge] = ones(Float64, T)
+        msg_theta[reverse(edge)] = ones(Float64, T)
+    end
+
+    # initial conditions
+    mrg_s[1, :] = 1.0 .- p0
+    for (k, v) in msg_phi
+        v[1] = p0[k[1]]
+    end
+
+    # DMP
+    for t in 2:T
+        # theta
+        for (e, v) in msg_theta
+            v[t] = v[t-1] - g.edgelist[sort(e)] * msg_phi[e][t-1]
+        end
+        # susceptible marginals
+        for i in 1:g.n
+            mrg_s[t, i] = 1.0 - p0[i]
+            for neighbor in g.neighbors[i]
+                mrg_s[t, i] *= msg_theta[Int64[neighbor, i]][t]
+            end  # TODO: maybe we need a safeguard, like for IC?
+        end
+        # phi
+        for (e, w) in msg_phi
+            w[t] = (1.0 - g.edgelist[sort(e)]) * (1.0 - gamma) * w[t-1]
+            w[t] += mrg_s[t-1, e[1]] / msg_theta[reverse(e)][t-1]
+            w[t] -= mrg_s[t, e[1]] / msg_theta[reverse(e)][t]
+        end
+        # removed marginals
+        for i in 1:g.n
+            mrg_r[t, i] = mrg_r[t-1, i] + gamma * (1.0 - mrg_s[t-1, i] - mrg_r[t-1, i])
+        end
+    end
+
+    return mrg_s, mrg_r, msg_phi, msg_theta
+end
+
+"""
+    dmp_sir(g, gamma, p0, T)
+
+Computes the marginals and messages for cascade of length T on a graph g with
+initial condition p0 and removal probabilities gamma.
+"""
+function dmp_sir(g::Graph, gamma::Array{Float64, 1}, p0::Array{Float64, 1}, T::Int64)
+    # initialising marginals and messages
+    mrg_s = zeros(Float64, T, g.n)
+    mrg_r = zeros(Float64, T, g.n)
+    msg_phi = Dict{Array{Int64, 1}, Array{Float64, 1}}()
+    msg_theta = Dict{Array{Int64, 1}, Array{Float64, 1}}()
+    for edge in keys(g.edgelist)
+        msg_phi[edge] = zeros(Float64, T)
+        msg_phi[reverse(edge)] = zeros(Float64, T)
+        msg_theta[edge] = ones(Float64, T)
+        msg_theta[reverse(edge)] = ones(Float64, T)
+    end
+
+    # initial conditions
+    mrg_s[1, :] = 1.0 .- p0
+    for (k, v) in msg_phi
+        v[1] = p0[k[1]]
+    end
+
+    # DMP
+    for t in 2:T
+        # theta
+        for (e, v) in msg_theta
+            v[t] = v[t-1] - g.edgelist[sort(e)] * msg_phi[e][t-1]
+        end
+        # susceptible marginals
+        for i in 1:g.n
+            mrg_s[t, i] = 1.0 - p0[i]
+            for neighbor in g.neighbors[i]
+                mrg_s[t, i] *= msg_theta[Int64[neighbor, i]][t]
+            end  # TODO: maybe we need a safeguard, like for IC?
+        end
+        # phi
+        for (e, w) in msg_phi
+            w[t] = (1.0 - g.edgelist[sort(e)]) * (1.0 - gamma[e[1]]) * w[t-1]
+            w[t] += mrg_s[t-1, e[1]] / msg_theta[reverse(e)][t-1]
+            w[t] -= mrg_s[t, e[1]] / msg_theta[reverse(e)][t]
+        end
+        # removed marginals
+        for i in 1:g.n
+            mrg_r[t, i] = mrg_r[t-1, i] + gamma[i] * (1.0 - mrg_s[t-1, i] - mrg_r[t-1, i])
+        end
+    end
+
+    return mrg_s, mrg_r, msg_phi, msg_theta
+end
+
+"""
     get_ic_objective(marginals, seed)
 
 Caclulates the objective function of given activation times paired with
