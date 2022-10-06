@@ -241,6 +241,18 @@ function remove_unobserved!(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, 
 end
 
 """
+    remove_unobserved!(cascades_class, unobserved)
+
+Removes unobserved nodes from the dictionary of activated nodes.
+"""
+function remove_unobserved!(cascades_class::Dict{Int64, Dict{Int64, Int64}},
+                            unobserved::Array{Int64, 1})
+    for key in unobserved
+        delete!(cascades_class, key)
+    end
+end
+
+"""
     remove_times!(cascades_classes, unobserved)
 
 Removes unobserved nodes from the dictionary of activated nodes.
@@ -253,18 +265,6 @@ function remove_times!(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{
                 delete!(cascades_classes[seed][key], t)
             end
         end
-    end
-end
-
-"""
-    remove_unobserved!(cascades_class, unobserved)
-
-Removes unobserved nodes from the dictionary of activated nodes.
-"""
-function remove_unobserved!(cascades_class::Dict{Int64, Dict{Int64, Int64}},
-                            unobserved::Array{Int64, 1})
-    for key in unobserved
-        delete!(cascades_class, key)
     end
 end
 
