@@ -1,5 +1,6 @@
 
 include("structures.jl")
+include("additional_tools.jl")
 
 """
     dmp_ic(g, p0, T)
@@ -384,6 +385,35 @@ function get_ic_objective(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{I
                 end
             end
             objective += log(temp_sum) * seed[i][t]  # TODO: What if temp_sum == 0.0 ??
+        end
+    end
+    return objective
+end
+
+"""
+    get_ic_objective(marginals, seed, unobs_times)
+
+Caclulates the objective function of given activation times paired with
+an initial condition (seed) and assuming partly unobserved times.
+"""
+function get_ic_objective(marginals::Array{Float64, 2}, seed::Dict{Int64, Dict{Int64, Int64}},
+                          unobs_times::Array{Int64, 1})
+    T::Int64 = size(marginals)[1]
+    objective::Float64 = 0.0
+    for i in keys(seed)
+        for t in keys(seed[i])
+            if t == 1  # I assume that T > 1 (!!!)
+                objective += log(marginals[t, i]) * seed[i][t]
+            elseif t == T
+                objective += log(1.0 - marginals[t-1, i]) * seed[i][t]
+            elseif t > 1
+                if t in unobs_times
+                    t_low, t_upp = unobserved_time_interval(t, unobs_times)
+                else
+                    t_low, t_upp = t, t
+                end
+                objective += log(marginals[t_upp, i] - marginals[t_low-1, i]) * seed[i][t]
+            end
         end
     end
     return objective
