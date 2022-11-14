@@ -657,7 +657,7 @@ function get_full_objective(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, 
     for seeds in keys(cascades_classes)
         p0 = zeros(Float64, g.n)
         p0[seeds] .= 1.0
-        marginals, messages = dmp_ic(g, p0, T)
+        marginals, _ = dmp_ic(g, p0, T)
         objective += get_ic_objective(marginals, cascades_classes[seeds])
     end
     return objective
@@ -671,13 +671,13 @@ that all the cascades have common stochastic initial condition p0.
 """
 function get_full_objective(cascades_class::Dict{Int64, Dict{Int64, Int64}}, p0::Array{Float64, 1},
                             g::Union{Graph, DirGraph, SimpleGraph}, T::Int64)
-    marginals, messages = dmp_ic(g, p0, T)
+    marginals, _ = dmp_ic(g, p0, T)
     objective = get_ic_objective(marginals, cascades_class)
     return objective
 end
 
 """
-    get_full_objective(cascades_class, p0, g, T, noise)
+    get_full_objective(cascades_class, g, T, noise)
 
 Calculates the objective of a given graph, with respect to a set of cascades,
 in the case of noisy times.
@@ -688,7 +688,7 @@ function get_full_objective(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, 
     for seeds in keys(cascades_classes)
         p0 = zeros(Float64, g.n)
         p0[seeds] .= 1.0
-        marginals, messages = dmp_ic(g, p0, T)
+        marginals, _ = dmp_ic(g, p0, T)
         objective += get_ic_objective(marginals, cascades_classes[seeds], noise)
     end
     return objective
@@ -705,7 +705,7 @@ function get_full_objective(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, 
     for seeds in keys(cascades_classes)
         p0 = zeros(Float64, g.n)
         p0[seeds] .= 1.0
-        marginals, messages = dmp_ic(g, p0, T)
+        marginals, _ = dmp_ic(g, p0, T)
         objective += get_ic_objective(marginals, cascades_classes[seeds], unobs_times)
     end
     return objective
