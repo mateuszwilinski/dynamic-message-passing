@@ -574,6 +574,35 @@ function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int6
 end
 
 """
+    get_lagrange_gradient(cascades_classes, g, T, unobs_times)
+
+Computes gradient for alpha according to lagrange derivative summed over classes of cascades
+and assuming partly unobserved times.
+"""
+function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
+                               g::SimpleGraph, T::Int64, unobs_times::Array{Int64, 1})
+    objective = 0.0
+    D = 0.0
+    for seeds in keys(cascades_classes)
+        p0 = zeros(Float64, g.n)
+        p0[seeds] .= 1.0
+        marginals, messages = dmp_ic(g, p0, T)
+        lambda = lambda_from_marginals(marginals, cascades_classes[seeds], unobs_times)
+        lambda_ij = get_lambda_ij(lambda, g, messages, p0)
+
+        objective += get_ic_objective(marginals, cascades_classes[seeds], unobs_times)
+        # TODO: One could ask what to do when alpha == 0.0, but it seems to me that
+        #       in the case of simple graphs such situation is trivial and either
+        #.      there is no dynamics, or you can start from a very small alpha.
+        for edge in eachrow(g.edgelist)
+            D += sum(lambda_ij[edge] .* messages[edge] +
+                     lambda_ij[reverse(edge)] .* messages[reverse(edge)]) / g.alpha[]
+        end
+    end
+    return D, objective
+end
+
+"""
     get_gradient_hard_way(edge, p0, messages, lambda, lambda_ij, g, T)
 
 Computes gradient for a single edge (for a given cascade class).
