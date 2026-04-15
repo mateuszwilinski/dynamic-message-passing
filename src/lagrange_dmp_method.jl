@@ -497,10 +497,10 @@ end
 Computes gradient for alphas according to lagrange derivative summed over classes of cascades,
 in the case of noisy times.
 """
-function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
+function get_lagrange_gradient(cascades_classes::Dict{Vector{Int64}, Dict{Int64, Dict{Int64, Int64}}},
                                g::Graph, T::Int64, noise::TimeNoise)
     objective = 0.0
-    D_ij = Dict{Array{Int64, 1}, Float64}()
+    D_ij = Dict{Vector{Int64}, Float64}()
     for seeds in keys(cascades_classes)
         p0 = zeros(Float64, g.n)
         p0[seeds] .= 1.0
@@ -538,8 +538,47 @@ end
 Computes gradient for alphas according to lagrange derivative summed over classes of cascades
 and assuming partly unobserved times.
 """
+function get_lagrange_gradient(cascades_classes::Dict{Vector{Int64}, Dict{Int64, Dict{Int64, Int64}}},
+                               g::Graph, T::Int64, unobs_times::Vector{Int64})
+    objective = 0.0
+    D_ij = Dict{Vector{Int64}, Float64}()
+    for seeds in keys(cascades_classes)
+        p0 = zeros(Float64, g.n)
+        p0[seeds] .= 1.0
+        marginals, messages = dmp_ic(g, p0, T)
+        lambda = lambda_from_marginals(marginals, cascades_classes[seeds], unobs_times)
+        lambda_ij = get_lambda_ij(lambda, g, messages, p0)
+
+        objective += get_ic_objective(marginals, cascades_classes[seeds], unobs_times)
+        for (edge, v) in g.edgelist
+            if !haskey(D_ij, edge)
+                if v == 0.0
+                    D_ij[edge] = get_gradient_hard_way(edge, p0, messages,
+                                                       lambda, lambda_ij, g, T)
+                else
+                    D_ij[edge] = sum(lambda_ij[edge] .* messages[edge]) / v
+                end
+            else
+                if v == 0.0
+                    D_ij[edge] += get_gradient_hard_way(edge, p0, messages,
+                                                        lambda, lambda_ij, g, T)
+                else
+                    D_ij[edge] += sum(lambda_ij[edge] .* messages[edge]) / v
+                end
+            end
+        end
+    end
+    return D_ij, objective
+end
+
+"""
+    get_lagrange_gradient(cascades_classes, g, T, unobs_times)
+
+Computes gradient for alphas according to lagrange derivative summed over classes of cascades
+and assuming partly unobserved times.
+"""
 function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
-                               g::Graph, T::Int64, unobs_times::Array{Int64, 1})
+                               g::DirGraph, T::Int64, unobs_times::Array{Int64, 1})
     objective = 0.0
     D_ij = Dict{Array{Int64, 1}, Float64}()
     for seeds in keys(cascades_classes)
@@ -547,7 +586,7 @@ function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int6
         p0[seeds] .= 1.0
         marginals, messages = dmp_ic(g, p0, T)
         lambda = lambda_from_marginals(marginals, cascades_classes[seeds], unobs_times)
-        lambda_ij = get_lambda_ij(lambda, g, messages, p0)
+        lambda_ij = get_lambda_ij(lambda, g, marginals, messages, p0)
 
         objective += get_ic_objective(marginals, cascades_classes[seeds], unobs_times)
         for (edge, v) in g.edgelist
@@ -580,7 +619,7 @@ Computes gradient for alpha according to lagrange derivative summed over classes
 and assuming partly unobserved times.
 """
 function get_lagrange_gradient(cascades_classes::Dict{Array{Int64, 1}, Dict{Int64, Dict{Int64, Int64}}},
-                               g::SimpleGraph, T::Int64, unobs_times::Array{Int64, 1})
+                               g::SimpleGraph, T::Int64, unobs_times::Vector{Int64})
     objective = 0.0
     D = 0.0
     for seeds in keys(cascades_classes)
